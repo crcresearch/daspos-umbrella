@@ -41,7 +41,7 @@ SPECIFICATION_COMPONENTS = {
 }
 
 
-class UmbrellaValidator():
+class UmbrellaValidator:
     def __init__(self, specification_file):
         if specification_file is None:
             raise ValueError('Specification file is required.')
