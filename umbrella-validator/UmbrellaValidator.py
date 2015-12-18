@@ -51,7 +51,7 @@ class UmbrellaValidator:
 
         self.specification_file = specification_file
 
-    def validate(self):
+    def validate(self, call_back_function=None, *args):
         # Open Specification
         if isinstance(self.specification_file, file):
             specification_json = json.load(self.specification_file)
@@ -106,7 +106,7 @@ class UmbrellaValidator:
             file_name = file_info[FILE_NAME]
 
             for url in file_info[URL_SOURCES]:
-                md5 = self.get_md5(url, file_info[FILE_SIZE])
+                md5 = self.get_md5(url, file_info[FILE_SIZE], call_back_function, *args)
 
                 if md5 and md5 != file_info[MD5]:
                     pass
