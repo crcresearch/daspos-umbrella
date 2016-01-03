@@ -80,13 +80,14 @@ class UmbrellaValidator:
                 valid_specification_components.append(component_name)
 
                 if component["has_files"]:
-                    # Package Manager is set up slightly differently
-                    if component_name == "package_manager":
+                    if component_name == "package_manager":  # Package Manager has config and goes one extra level  (3 levels)  # noqa
                         component_file_info = specification_json[component_name][CONFIG]
-                    else:
+                    elif component_name == "os":  # OS is on the base level, so one less level                      (1 level)   # noqa
+                        component_file_info = {"os": specification_json[component_name]}
+                    else:  # Everything else has two levels                                                         (2 levels)  # noqa
                         component_file_info = specification_json[component_name]
 
-                    # Loop through each files info
+                    # Loop through each file's info
                     for name, file_info in component_file_info.iteritems():
                         # OS has its name inside its general info section
                         if component_name == "os":
@@ -108,7 +109,7 @@ class UmbrellaValidator:
                 )
 
         # Check for missing required components
-        for component_name, component in SPECIFICATION_COMPONENTS:
+        for component_name, component in SPECIFICATION_COMPONENTS.iteritems():
             # If the specification component is required and we didn"t find it
             if component["required"] and component_name not in valid_specification_components:
                 self.__error_log.append(
@@ -117,13 +118,16 @@ class UmbrellaValidator:
                 )
 
         for file_info in file_infos:
-            file_name = file_info[FILE_NAME]
-
             for url in file_info[URL_SOURCES]:
                 md5 = self.get_md5(url, file_info, call_back_function, *args)
 
                 if md5 and md5 != file_info[MD5]:
-                    pass
+                    self.__error_log.append(
+                        "The file named " + str(file_info[FILE_NAME]) + " on component " +
+                        str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
+                        " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
+                        str(file_info[MD5])
+                    )
 
     def get_md5(self, the_file_or_url, file_info, call_back_function=None, *args):
         if isinstance(the_file_or_url, file):
@@ -150,7 +154,14 @@ class UmbrellaValidator:
         except urllib2.HTTPError as error:
             self.__error_log.append(
                 "Http error for url " + str(url) + " associated with the file named " +
-                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + ":" + str(error)
+                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            )
+
+            return -1
+        except urllib2.URLError as error:
+            self.__error_log.append(
+                "Url error for url " + str(url) + " associated with the file named " +
+                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
 
             return -1
@@ -159,7 +170,7 @@ class UmbrellaValidator:
         try:
             file_size_from_url = int(remote.headers["content-length"])
 
-            if file_size_from_url != file_info[FILE_SIZE]:
+            if int(file_size_from_url) != int(file_info[FILE_SIZE]):
                 self.__error_log.append(
                     "Url " + str(url) + " associated with the file named " +
                     str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
@@ -183,7 +194,9 @@ class UmbrellaValidator:
 
         if actual_file_size is None:
             percent_processed = -1
-            call_back_function(percent_processed, *args)
+
+            if call_back_function:
+                call_back_function(percent_processed, *args)
 
         while True:
             data = data_source.read(DOWNLOAD_CHUNK_SIZE)
@@ -198,12 +211,17 @@ class UmbrellaValidator:
                 percent_processed = float(bytes_prcoessed / actual_file_size * 100)
 
                 if percent_processed > 10:
-                    call_back_function(percent_processed, *args)
+                    if call_back_function:
+                        call_back_function(percent_processed, *args)
 
             md5.update(data)
 
-        if bytes_prcoessed != file_info[FILE_SIZE]:
-            raise ValueError("File size mismatch. Need to put this in a log.")
+        if bytes_prcoessed != int(file_info[FILE_SIZE]):
+            self.__error_log.append(
+                "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
+                " had a file size of " + str(bytes_prcoessed) + " but the specification says it should be " +
+                str(file_info[FILE_SIZE])
+            )
 
         return md5.hexdigest()
 
