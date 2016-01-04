@@ -1,7 +1,10 @@
-from UmbrellaValidator import UmbrellaValidator
+from umbrella import UmbrellaSpecification
+import os
 
-VALID_FILE = "E:/PycharmProjects/daspos-umbrella/umbrella-validator/openmalaria.umbrella"
-PATH = "E:/PycharmProjects/daspos-umbrella/umbrella-validator/BrokenSpecs/"
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+VALID_FILE = os.path.join(base_dir, "openmalaria.umbrella")
+PATH = os.path.join(base_dir, "BrokenSpecs")
 
 
 def test_all_errors():
@@ -37,9 +40,9 @@ def test_wrong_source():
 
 
 def validate_and_report(file_name):
-    specification_file = open(PATH + file_name)
+    specification_file = open(os.path.join(PATH,file_name))
 
-    umbrella_validator = UmbrellaValidator(specification_file)
+    umbrella_validator = UmbrellaSpecification(specification_file)
     umbrella_validator.validate()
 
     print umbrella_validator.error_log

@@ -42,7 +42,7 @@ SPECIFICATION_COMPONENTS = {
 }
 
 
-class UmbrellaValidator:
+class UmbrellaSpecification:
     def __init__(self, specification_file):
         self.__error_log = []
         self.__warning_log = []
@@ -119,7 +119,14 @@ class UmbrellaValidator:
 
         for file_info in file_infos:
             for url in file_info[URL_SOURCES]:
-                md5 = self.get_md5(url, file_info, call_back_function, *args)
+                md5, file_size = self.get_md5_and_file_size(url, file_info, call_back_function, *args)
+
+                if file_size != int(file_info[FILE_SIZE]):
+                    self.__error_log.append(
+                        "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
+                        " had a file size of " + str(file_size) + " but the specification says it should be " +
+                        str(file_info[FILE_SIZE])
+                    )
 
                 if md5 and md5 != file_info[MD5]:
                     self.__error_log.append(
@@ -129,7 +136,7 @@ class UmbrellaValidator:
                         str(file_info[MD5])
                     )
 
-    def get_md5(self, the_file_or_url, file_info, call_back_function=None, *args):
+    def get_md5_and_file_size(self, the_file_or_url, file_info, call_back_function=None, *args):
         if isinstance(the_file_or_url, file):
             return self.__calculate_md5_via_file(the_file_or_url, file_info, call_back_function, *args)
         elif isinstance(the_file_or_url, (str, unicode)):
@@ -157,14 +164,14 @@ class UmbrellaValidator:
                 str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
 
-            return -1
+            return None, None
         except urllib2.URLError as error:
             self.__error_log.append(
                 "Url error for url " + str(url) + " associated with the file named " +
                 str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
 
-            return -1
+            return None, None
 
         # Get the file_size from the website. Some websites (old ones) may not give this information
         try:
@@ -189,7 +196,7 @@ class UmbrellaValidator:
         return self.__calculate_md5(the_file, file_info[FILE_SIZE], file_info, call_back_function, *args)
 
     def __calculate_md5(self, data_source, actual_file_size, file_info, call_back_function, *args):
-        bytes_prcoessed = 0
+        bytes_processed = 0
         md5 = hashlib.md5()
 
         if actual_file_size is None:
@@ -205,10 +212,10 @@ class UmbrellaValidator:
             if not data:
                 break
 
-            bytes_prcoessed += len(data)
+            bytes_processed += len(data)
 
             if actual_file_size:
-                percent_processed = float(bytes_prcoessed / actual_file_size * 100)
+                percent_processed = float(bytes_processed / actual_file_size * 100)
 
                 if percent_processed > 10:
                     if call_back_function:
@@ -216,14 +223,7 @@ class UmbrellaValidator:
 
             md5.update(data)
 
-        if bytes_prcoessed != int(file_info[FILE_SIZE]):
-            self.__error_log.append(
-                "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
-                " had a file size of " + str(bytes_prcoessed) + " but the specification says it should be " +
-                str(file_info[FILE_SIZE])
-            )
-
-        return md5.hexdigest()
+        return md5.hexdigest(), bytes_processed
 
 
 if __name__ == "__main__":
