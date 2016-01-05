@@ -11,7 +11,7 @@
 		"name": "linux",
 		"version": ">=2.6.18"
 	},
-	"os": {
+	"os":  {
 		"id": "902703f016e0f930a870eaf9cb31640b",
 		"name": "CentOS",
 		"version": "6.6",

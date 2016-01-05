@@ -42,10 +42,94 @@ SPECIFICATION_COMPONENTS = {
 }
 
 
+class SmartDict(dict):
+    def __init__(self, dictionary, default=None, blank=""):
+        super(SmartDict, self).__init__(dictionary)
+        self.default = default
+        self.blank = blank
+
+    def __getitem__(self, key):
+        value = self.get(key, self.default)
+        if value == self.blank:
+            value = self.default
+        return value
+
+    def __call__(self, *args, **kwargs):
+        default = kwargs.get("default", None)
+        blank = kwargs.get("blank", "")
+        for item in args:
+            value = self.get(item, None)
+            if value is not None:
+                if value != blank:
+                    return value
+                else:
+                    return default
+        return default
+
+
+class Component(object):
+    required_keys = []
+
+    def __init__(self, umbrella_specification, component_name, component_json=None):
+        self.umbrella_specification = umbrella_specification
+        self.name = component_name
+        self.component_json = component_json
+
+    def validate(self):
+        is_valid = True
+        if not isinstance(self.component_json, dict):
+            self.umbrella_specification.__error_log.append("Component %s must be dict" % self.name)
+            return False
+        for key in self.required_keys:
+            if key not in self.component_json:
+                is_valid = False
+                self.umbrella_specification.__error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
+        return is_valid
+
+
+class MissingComponent(Component):
+    def validate(self):
+        self.umbrella_specification.__error_log.append("Component %s doesn't exist" % self.name)
+        return False
+
+
+class UmbrellaFile(Component):
+    required_keys = ['id', 'source', 'format', 'checksum', 'size', 'mountpoint']
+
+    def validate(self):
+        is_valid = super(UmbrellaFile, self).validate()
+        if "source" in self.component_json:
+            if not isinstance(self.component_json["source"], list):
+                self.umbrella_specification.__error_log.append("\"source\" must be a list in %s component" % self.name)
+        # MD5 and SIZE validation for all sources - passing callback function as self.umbrella_specification_callback_function
+        # ...
+        return is_valid
+
+
+class UmbrellaFileInOSComponent(UmbrellaFile):
+    required_keys = ['id', 'source', 'format', 'checksum', 'size']
+
+class OsComponent(Component):
+    required_keys = ['version', 'name']
+
+    def validate(self, *args):
+        is_valid = super(OsComponent, self).validate()
+        os_file = UmbrellaFileInOSComponent(self.umbrella_specification, "os", self.component_json)
+        if not os_file.validate():
+            is_valid = False
+
+        return is_valid
+
+
 class UmbrellaSpecification:
+    """
+    Note this class is NOT thread safe. Do not use it in multithreaded environment.
+    """
     def __init__(self, specification_file):
         self.__error_log = []
         self.__warning_log = []
+        self.callback_function = lambda *args, **kwargs: True
+        self.args = []
 
         if specification_file is None:
             raise ValueError("Specification file is required.")
@@ -53,39 +137,52 @@ class UmbrellaSpecification:
         if not isinstance(specification_file, (file, str, unicode, dict)):
             raise TypeError("Specification file must be an open file, json in string form, or a python dictionary")
 
-        self.specification_file = specification_file
+        # Open Specification
+        if hasattr(specification_file, "read"):
+            self.specification_json = json.load(specification_file)
+        elif isinstance(specification_file, (str, unicode)):
+            self.specification_json = json.loads(specification_file)
+        elif isinstance(specification_file, dict):
+            self.specification_json = specification_file
+        else:
+            raise ValueError("Specification file must be an open file, json in string form, or a python dictionary")
+
+        if "os" in self.specification_json:
+            self.os = OsComponent(self, "os", self.specification_json["os"])
+        else:
+            self.os = MissingComponent(self, "os")
+
+    def validate2(self, call_back_function=None, *args):
+        is_valid = True
+        self.callback_function = call_back_function
+        self.args = args
+        if not self.os.validate():
+            is_valid = False
+
+        return is_valid
 
     def validate(self, call_back_function=None, *args):
         self.__error_log = []
         self.__warning_log = []
 
-        # Open Specification
-        if isinstance(self.specification_file, file):
-            specification_json = json.load(self.specification_file)
-        elif isinstance(self.specification_file, (str, unicode)):
-            specification_json = json.loads(self.specification_file)
-        elif isinstance(self.specification_file, dict):
-            specification_json = self.specification_file
-        else:
-            raise ValueError("Specification file must be an open file, json in string form, or a python dictionary")
 
         # Initialize lists
         file_infos = []
         valid_specification_components = []
 
         # Cycle through all of the specification components in the file
-        for component_name, component in specification_json.iteritems():
+        for component_name, component in self.specification_json.iteritems():
             if component_name in SPECIFICATION_COMPONENTS:  # Is this component in the whitelist, if so, check it
                 component = SPECIFICATION_COMPONENTS[component_name]
                 valid_specification_components.append(component_name)
 
                 if component["has_files"]:
                     if component_name == "package_manager":  # Package Manager has config and goes one extra level  (3 levels)  # noqa
-                        component_file_info = specification_json[component_name][CONFIG]
+                        component_file_info = self.specification_json[component_name][CONFIG]
                     elif component_name == "os":  # OS is on the base level, so one less level                      (1 level)   # noqa
-                        component_file_info = {"os": specification_json[component_name]}
+                        component_file_info = {"os": self.specification_json[component_name]}
                     else:  # Everything else has two levels                                                         (2 levels)  # noqa
-                        component_file_info = specification_json[component_name]
+                        component_file_info = self.specification_json[component_name]
 
                     # Loop through each file's info
                     for name, file_info in component_file_info.iteritems():
@@ -223,6 +320,8 @@ class UmbrellaSpecification:
 
             md5.update(data)
 
+        if call_back_function:
+            call_back_function(100.0, *args)
         return md5.hexdigest(), bytes_processed
 
 
