@@ -2,3 +2,4 @@
 # All rights reserved
 
 from .UmbrellaSpecification import UmbrellaSpecification
+from .UmbrellaComponents import *
