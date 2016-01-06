@@ -109,6 +109,7 @@ class UmbrellaFile(Component):
 class UmbrellaFileInOSComponent(UmbrellaFile):
     required_keys = ['id', 'source', 'format', 'checksum', 'size']
 
+
 class OsComponent(Component):
     required_keys = ['version', 'name']
 
