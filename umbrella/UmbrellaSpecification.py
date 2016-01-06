@@ -42,33 +42,127 @@ SPECIFICATION_COMPONENTS = {
 }
 
 
-class SmartDict(dict):
-    def __init__(self, dictionary, default=None, blank=""):
-        super(SmartDict, self).__init__(dictionary)
-        self.default = default
-        self.blank = blank
+class UmbrellaFile(object):
+    __required_keys = ['id', 'source', 'format', 'checksum', 'size', 'mountpoint']
+    __error_log = []
+    __warning_log = []
 
-    def __getitem__(self, key):
-        value = self.get(key, self.default)
-        if value == self.blank:
-            value = self.default
-        return value
+    def __init__(self, file_json=None, component_name=None):
+        self.file_json = file_json
+        self.component_name = component_name
 
-    def __call__(self, *args, **kwargs):
-        default = kwargs.get("default", None)
-        blank = kwargs.get("blank", "")
-        for item in args:
-            value = self.get(item, None)
-            if value is not None:
-                if value != blank:
-                    return value
-                else:
-                    return default
-        return default
+    def validate(self):
+        is_valid = True
+        self.__error_log = []
+        self.__warning_log = []
+
+        if not isinstance(self.file_json, dict):
+            # self.__error_log.append("Component %s must be dict" % self.name)
+
+            return False
+
+        if "source" in self.file_json:
+            if not isinstance(self.file_json["source"], list):
+                self.__error_log.append("\"source\" must be a list in %s component" % self.component_name)
+
+            # MD5 and SIZE validation for all sources - passing callback function as self.umbrella_specification_callback_function
+            # ...
+        else:
+            is_valid = False
+
+        return is_valid
+
+    def get_md5_and_file_size(self, the_file_or_url, file_info, call_back_function=None, *args):
+        if hasattr(the_file_or_url, "read"):
+            return self.get_md5_and_file_size_via_file(the_file_or_url, file_info, call_back_function, *args)
+        elif isinstance(the_file_or_url, (str, unicode)):
+            return self.get_md5_and_file_size_via_url(the_file_or_url, file_info, call_back_function, *args)
+        else:
+            raise ValueError("the_file_or_url must be a file or a string form of a url")
+
+    def get_md5_and_file_size_via_url(self, url, file_info, call_back_function, *args):
+        if not isinstance(url, (str, unicode)):
+            raise ValueError("Url must be in string form ")
+
+        try:
+            remote = urllib2.urlopen(url)
+        except urllib2.HTTPError as error:
+            self.__error_log.append(
+                "Http error for url " + str(url) + " associated with the file named " +
+                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            )
+
+            return None, None
+        except urllib2.URLError as error:
+            self.__error_log.append(
+                "Url error for url " + str(url) + " associated with the file named " +
+                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            )
+
+            return None, None
+
+        # Get the file_size from the website. Some websites (old ones) may not give this information
+        try:
+            file_size_from_url = int(remote.headers["content-length"])
+
+            if int(file_size_from_url) != int(file_info[FILE_SIZE]):
+                self.__error_log.append(
+                    "Url " + str(url) + " associated with the file named " +
+                    str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
+                    " reported a file size of " + str(file_size_from_url) +
+                    " but the specification says it should be " + str(file_info[FILE_SIZE])
+                )
+        except KeyError:
+            file_size_from_url = None
+
+        return self.__calculate_md5(remote, file_size_from_url, file_info, call_back_function, *args)
+
+    def get_md5_and_file_size_via_file(self, the_file, file_info, call_back_function, *args):
+        if not hasattr(the_file, "read"):
+            raise ValueError("the_file must be an open file ")
+
+        return self.__calculate_md5(the_file, file_info[FILE_SIZE], file_info, call_back_function, *args)
+
+    def __calculate_md5(self, data_source, actual_file_size, file_info, call_back_function, *args):
+        bytes_processed = 0
+        md5 = hashlib.md5()
+
+        if actual_file_size is None:
+            percent_processed = -1
+
+            if call_back_function:
+                call_back_function(percent_processed, *args)
+
+        while True:
+            data = data_source.read(DOWNLOAD_CHUNK_SIZE)
+
+            # There was no more data to read
+            if not data:
+                break
+
+            bytes_processed += len(data)
+
+            if actual_file_size:
+                percent_processed = float(bytes_processed / actual_file_size * 100)
+
+                if percent_processed > 10:
+                    if call_back_function:
+                        call_back_function(percent_processed, *args)
+
+            md5.update(data)
+
+        if call_back_function:
+            call_back_function(100.0, *args)
+
+        return md5.hexdigest(), bytes_processed
+
+
+class UmbrellaFileInOSComponent(UmbrellaFile):
+    __required_keys = ['id', 'source', 'format', 'checksum', 'size']
 
 
 class Component(object):
-    required_keys = []
+    __required_keys = []
 
     def __init__(self, umbrella_specification, component_name, component_json=None):
         self.umbrella_specification = umbrella_specification
@@ -77,13 +171,17 @@ class Component(object):
 
     def validate(self):
         is_valid = True
+
         if not isinstance(self.component_json, dict):
             self.umbrella_specification.__error_log.append("Component %s must be dict" % self.name)
+
             return False
-        for key in self.required_keys:
+
+        for key in self.__required_keys:
             if key not in self.component_json:
                 is_valid = False
                 self.umbrella_specification.__error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
+
         return is_valid
 
 
@@ -93,29 +191,17 @@ class MissingComponent(Component):
         return False
 
 
-class UmbrellaFile(Component):
-    required_keys = ['id', 'source', 'format', 'checksum', 'size', 'mountpoint']
-
-    def validate(self):
-        is_valid = super(UmbrellaFile, self).validate()
-        if "source" in self.component_json:
-            if not isinstance(self.component_json["source"], list):
-                self.umbrella_specification.__error_log.append("\"source\" must be a list in %s component" % self.name)
-        # MD5 and SIZE validation for all sources - passing callback function as self.umbrella_specification_callback_function
-        # ...
-        return is_valid
-
-
-class UmbrellaFileInOSComponent(UmbrellaFile):
-    required_keys = ['id', 'source', 'format', 'checksum', 'size']
-
-
 class OsComponent(Component):
-    required_keys = ['version', 'name']
+    __required_keys = ['version', 'name']
 
     def validate(self, *args):
         is_valid = super(OsComponent, self).validate()
-        os_file = UmbrellaFileInOSComponent(self.umbrella_specification, "os", self.component_json)
+
+        if "source" in self.component_json:
+            os_file = UmbrellaFileInOSComponent(self.component_json["source"])
+        else:
+            os_file = UmbrellaFileInOSComponent(None)
+
         if not os_file.validate():
             is_valid = False
 
@@ -165,7 +251,6 @@ class UmbrellaSpecification:
     def validate(self, call_back_function=None, *args):
         self.__error_log = []
         self.__warning_log = []
-
 
         # Initialize lists
         file_infos = []
@@ -234,14 +319,6 @@ class UmbrellaSpecification:
                         str(file_info[MD5])
                     )
 
-    def get_md5_and_file_size(self, the_file_or_url, file_info, call_back_function=None, *args):
-        if isinstance(the_file_or_url, file):
-            return self.__calculate_md5_via_file(the_file_or_url, file_info, call_back_function, *args)
-        elif isinstance(the_file_or_url, (str, unicode)):
-            return self.__calculate_md5_via_url(the_file_or_url, file_info, call_back_function, *args)
-        else:
-            raise ValueError("the_file_or_url must be a file or a string form of a url")
-
     @property
     def error_log(self):
         return self.__error_log
@@ -249,81 +326,6 @@ class UmbrellaSpecification:
     @property
     def warning_log(self):
         return self.__warning_log
-
-    def __calculate_md5_via_url(self, url, file_info, call_back_function, *args):
-        if not isinstance(url, (str, unicode)):
-            raise ValueError("Url must be in string form ")
-
-        try:
-            remote = urllib2.urlopen(url)
-        except urllib2.HTTPError as error:
-            self.__error_log.append(
-                "Http error for url " + str(url) + " associated with the file named " +
-                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
-            )
-
-            return None, None
-        except urllib2.URLError as error:
-            self.__error_log.append(
-                "Url error for url " + str(url) + " associated with the file named " +
-                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
-            )
-
-            return None, None
-
-        # Get the file_size from the website. Some websites (old ones) may not give this information
-        try:
-            file_size_from_url = int(remote.headers["content-length"])
-
-            if int(file_size_from_url) != int(file_info[FILE_SIZE]):
-                self.__error_log.append(
-                    "Url " + str(url) + " associated with the file named " +
-                    str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
-                    " reported a file size of " + str(file_size_from_url) +
-                    " but the specification says it should be " + str(file_info[FILE_SIZE])
-                )
-        except KeyError:
-            file_size_from_url = None
-
-        return self.__calculate_md5(remote, file_size_from_url, file_info, call_back_function, *args)
-
-    def __calculate_md5_via_file(self, the_file, file_info, call_back_function, *args):
-        if not isinstance(the_file, file):
-            raise ValueError("the_file must be an open file ")
-
-        return self.__calculate_md5(the_file, file_info[FILE_SIZE], file_info, call_back_function, *args)
-
-    def __calculate_md5(self, data_source, actual_file_size, file_info, call_back_function, *args):
-        bytes_processed = 0
-        md5 = hashlib.md5()
-
-        if actual_file_size is None:
-            percent_processed = -1
-
-            if call_back_function:
-                call_back_function(percent_processed, *args)
-
-        while True:
-            data = data_source.read(DOWNLOAD_CHUNK_SIZE)
-
-            # There was no more data to read
-            if not data:
-                break
-
-            bytes_processed += len(data)
-
-            if actual_file_size:
-                percent_processed = float(bytes_processed / actual_file_size * 100)
-
-                if percent_processed > 10:
-                    if call_back_function:
-                        call_back_function(percent_processed, *args)
-
-            md5.update(data)
-
-        if call_back_function:
-            call_back_function(100.0, *args)
-        return md5.hexdigest(), bytes_processed
 
 
 if __name__ == "__main__":
