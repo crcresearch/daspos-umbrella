@@ -4,15 +4,6 @@ import json
 
 from umbrella import MissingComponent, Component, MissingComponentError, SPECIFICATION_COMPONENT_NAMES
 
-CONFIG = "config"
-FILE_NAME = "name"
-COMPONENT_NAME = "component_name"
-URL_SOURCES = "source"
-MD5 = "checksum"
-FILE_SIZE = "size"
-UNCOMPRESSED_FILE_SIZE = "uncompressed_size"
-FILE_FORMAT = "format"
-
 
 class UmbrellaSpecification:
     """

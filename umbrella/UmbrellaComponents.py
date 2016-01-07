@@ -1,10 +1,11 @@
 import urllib2
 
 from umbrella.UmbrellaError import MissingComponentError
-from umbrella.UmbrellaSpecification import FILE_SIZE, COMPONENT_NAME, FILE_NAME
 from umbrella.misc import get_md5_and_file_size
 
+COMPONENT_NAME = "component_name"
 
+# Components
 SPECIFICATION_NAME = "comment"
 SPECIFICATION_DESCRIPTION = "note"
 HARDWARE = "hardware"
@@ -17,7 +18,30 @@ ENVIRONMENT_VARIABLES = "environ"
 COMMANDS = "cmd"
 OUTPUT = "output"
 
-SOURCES = "source"
+# Component keys
+ARCHITECTURE = "arch"
+CORES = "cores"
+MEMORY = "memory"
+DISK_SPACE = "disk"
+
+NAME = "name"
+VERSION = "version"
+
+PACKAGES = "list"
+REPOSITORIES = "config"
+
+FILES = "files"
+DIRECTORIES = "dirs"
+
+ID = "id"
+FILE_NAME = "name"
+URL_SOURCES = "source"
+MOUNT_POINT = "mountpoint"
+MD5 = "checksum"
+FILE_SIZE = "size"
+FILE_FORMAT = "format"
+UNCOMPRESSED_FILE_SIZE = "uncompressed_size"
+
 
 SPECIFICATION_COMPONENT_NAMES = [
     SPECIFICATION_NAME, SPECIFICATION_DESCRIPTION, HARDWARE, KERNEL, OS, PACKAGE_MANAGER, SOFTWARE, DATA_FILES,
@@ -88,19 +112,19 @@ class MissingComponent(Component):
 
 
 class UmbrellaFileInfoSubComponent(Component):
-    __required_keys = ["id", SOURCES, "format", "checksum", "size", "mountpoint"]
+    __required_keys = [ID, URL_SOURCES, FILE_FORMAT, MD5, FILE_SIZE, MOUNT_POINT]
 
     def validate(self):
         is_valid = super(UmbrellaFileInfoSubComponent, self).validate()
 
-        if SOURCES in self.component_json:
-            if not isinstance(self.component_json[SOURCES], list):
-                raise TypeError('"' + SOURCES + '"' + " must be a list")
+        if URL_SOURCES in self.component_json:
+            if not isinstance(self.component_json[URL_SOURCES], list):
+                raise TypeError('"' + URL_SOURCES + '"' + " must be a list")
 
-            for source in self.component_json[SOURCES]:
+            for source in self.component_json[URL_SOURCES]:
                 pass
 
-            # MD5 and SIZE validation for all sources - passing callback function as self.umbrella_specification_callback_function
+            # MD5 and SIZE validation for all URL_SOURCES - passing callback function as self.umbrella_specification.callback_function
             # ...
         else:
             is_valid = False
@@ -128,14 +152,14 @@ class UmbrellaFileInfoSubComponent(Component):
         try:
             remote = urllib2.urlopen(url)
         except urllib2.HTTPError as error:
-            self.__error_log.append(
+            self.umbrella_specification.__error_log.append(
                 "Http error for url " + str(url) + " associated with the file named " +
                 str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
 
             return None, None
         except urllib2.URLError as error:
-            self.__error_log.append(
+            self.umbrella_specification.__error_log.append(
                 "Url error for url " + str(url) + " associated with the file named " +
                 str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
@@ -147,7 +171,7 @@ class UmbrellaFileInfoSubComponent(Component):
             file_size_from_url = int(remote.headers["content-length"])
 
             if int(file_size_from_url) != int(file_info[FILE_SIZE]):
-                self.__error_log.append(
+                self.umbrella_specification.__error_log.append(
                     "Url " + str(url) + " associated with the file named " +
                     str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
                     " reported a file size of " + str(file_size_from_url) +
@@ -160,7 +184,7 @@ class UmbrellaFileInfoSubComponent(Component):
 
 
 class OsUmbrellaFileInfoSubComponent(UmbrellaFileInfoSubComponent):
-    __required_keys = ["id", SOURCES, "format", "checksum", "size"]
+    __required_keys = [ID, URL_SOURCES, FILE_FORMAT, MD5, FILE_SIZE]
 
 
 class NameComponent(Component):
@@ -184,17 +208,17 @@ class DescriptionComponent(Component):
 
 
 class HardwareComponent(Component):
-    __required_keys = ["arch", "cores", "memory", "disk"]
+    __required_keys = [ARCHITECTURE, CORES, MEMORY, DISK_SPACE]
     is_required = True
 
 
 class KernelComponent(Component):
-    __required_keys = ["name", "version"]
+    __required_keys = [NAME, VERSION]
     is_required = True
 
 
 class OsComponent(Component):
-    __required_keys = ["name", "version"]
+    __required_keys = [NAME, VERSION]
     is_required = True
 
     def validate(self):
@@ -209,30 +233,30 @@ class OsComponent(Component):
 
 
 class PackageManagerComponent(Component):
-    __required_keys = ["NEED_TO_DO"]
+    __required_keys = [NAME, PACKAGES, REPOSITORIES]
     is_required = False
 
 
 class SoftwareComponent(Component):
-    __required_keys = ["NEED_TO_DO"]
+    __required_keys = []
     is_required = False
 
 
 class DataFileComponent(Component):
-    __required_keys = ["NEED_TO_DO"]
+    __required_keys = []
     is_required = False
 
 
 class EnvironmentVariableComponent(Component):
-    __required_keys = ["NEED_TO_DO"]
+    __required_keys = []
     is_required = False
 
 
 class CommandComponent(Component):
-    __required_keys = ["NEED_TO_DO"]
+    __required_keys = []
     is_required = False
 
 
 class OutputComponent(Component):
-    __required_keys = ["NEED_TO_DO"]
+    __required_keys = [FILES, DIRECTORIES]
     is_required = True
