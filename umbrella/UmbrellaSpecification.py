@@ -39,7 +39,7 @@ class UmbrellaSpecification:
     def warning_log(self):
         return self.__warning_log
 
-    def validate2(self, callback_function=None, *args):
+    def validate(self, callback_function=None, *args):
         is_valid = True
 
         self.__error_log = []

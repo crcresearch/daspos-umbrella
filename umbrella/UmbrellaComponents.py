@@ -1,9 +1,11 @@
 import urllib2
 
-from umbrella.UmbrellaError import MissingComponentError
+from umbrella.UmbrellaError import MissingComponentError, ComponentTypeError, ProgrammingError
 from umbrella.misc import get_md5_and_file_size
 
 COMPONENT_NAME = "component_name"
+TYPE = "type"
+NEST = "nest"
 
 # Components
 SPECIFICATION_NAME = "comment"
@@ -50,7 +52,8 @@ SPECIFICATION_COMPONENT_NAMES = [
 
 
 class Component(object):
-    __required_keys = []
+    __type = str
+    __required_keys = {}
     is_required = False
 
     def __init__(self, umbrella_specification, component_name, component_json=None):
@@ -65,15 +68,66 @@ class Component(object):
     def validate(self):
         is_valid = True
 
-        if not isinstance(self.component_json, dict):
-            raise TypeError("Component %s must be dict" % self.name)
+        if not isinstance(self.component_json, self.__type):
+            raise ComponentTypeError("Component \"" + str(self.name) + "\" must be of type \"" + str(self.__type) + '"')
 
-        for key in self.__required_keys:
-            if key not in self.component_json:
-                is_valid = False
-                self.umbrella_specification.__error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
+        if isinstance(self.component_json, dict):  # Keys only apply to components that are dictionaries
+            for key, info in self.__required_keys.iteritems():
+                if key not in self.component_json:  # Required key is missing
+                    is_valid = False
+                    self.umbrella_specification.__error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
+                else:  # Required key is there, now check if it is set up right
+                    if not self.validate_subcomponent(self.component_json[key], info, key):  # Call this recursive function and check all pieces
+                        is_valid = False
+        elif len(self.__required_keys) > 0:
+            raise ProgrammingError("Check component \"" + str(self.name) + "\" and its __required_keys")
 
         return is_valid
+
+    def validate_subcomponent(self, subcomponent_json, info, key_name):
+        is_valid = True
+
+        if subcomponent_json is None:
+            raise ProgrammingError("subcomponent_json should not be None")
+
+        if info is None:
+            if key_name == REPOSITORIES:  # Special case piece for "config" on package_manager. We will check the config (the files) in a different place
+                return True
+            else:
+                raise ProgrammingError("info should not be None")
+
+        if key_name is None:
+            raise ProgrammingError("key_name should not be None")
+
+        while True:  # Loop until the object isn't comprehensive (list or dict)
+            if not isinstance(subcomponent_json, info[TYPE]):  # Check if it is the right type
+                is_valid = False
+                self.umbrella_specification.__error_log.append(
+                    '"' + str(key_name) + "\" key or one of its children, in component \"" + str(self.name) +
+                    "\" is of type \"" + str(type(subcomponent_json)) + "\" but should be of type \"" +
+                    str(info[TYPE]) + '"')
+
+            if isinstance(subcomponent_json, (list, dict)):
+                for key in subcomponent_json:
+                    subkey_name = key_name
+
+                    # Dictionaries will have key_names, but lists won't. If it is a list, we will just use last dictionary's key_name
+                    if isinstance(subcomponent_json, dict):
+                        subkey_name = key
+
+                    if not self.validate_subcomponent(subcomponent_json[key], info[NEST], key_name):
+                        is_valid = False
+            else:
+                break
+
+        return is_valid
+
+
+    def set_type(self, new_type):
+        if isinstance(new_type, type):
+            self.__type = new_type
+        else:
+            raise TypeError("New type must be of type \"type\". Confusing huh? :)")
 
     @staticmethod
     def get_specific_component(umbrella_specification, component_name, component_json):
@@ -112,22 +166,70 @@ class MissingComponent(Component):
 
 
 class UmbrellaFileInfoSubComponent(Component):
-    __required_keys = [ID, URL_SOURCES, FILE_FORMAT, MD5, FILE_SIZE, MOUNT_POINT]
+    __required_keys = {
+        ID: {
+            TYPE: str,
+        },
+        URL_SOURCES: {
+            TYPE: list,
+            NEST: {
+                TYPE: str,
+            },
+        },
+        FILE_FORMAT: {
+            TYPE: str,
+        },
+        MD5: {
+            TYPE: str,
+        },
+        # FILE_SIZE should later be changed to int
+        FILE_SIZE: {
+            TYPE: str,
+        },
+        MOUNT_POINT: {
+            TYPE: str,
+        },
+    }
 
     def validate(self):
         is_valid = super(UmbrellaFileInfoSubComponent, self).validate()
 
-        if URL_SOURCES in self.component_json:
+        if is_valid:
             if not isinstance(self.component_json[URL_SOURCES], list):
                 raise TypeError('"' + URL_SOURCES + '"' + " must be a list")
 
-            for source in self.component_json[URL_SOURCES]:
-                pass
+            file_info = {}
+
+            file_info[FILE_NAME] = self.component_json[FILE_NAME]
+            file_info[COMPONENT_NAME] = self.name
+            file_info[URL_SOURCES] = self.component_json[URL_SOURCES]
+            file_info[MD5] = self.component_json[MD5]
+            file_info[FILE_SIZE] = self.component_json[FILE_SIZE]
+
+            for url in file_info[URL_SOURCES]:
+                callback_function = self.umbrella_specification.callback_function
+                args = self.umbrella_specification.args
+                md5, file_size = self.__get_md5_and_file_size(url, file_info, callback_function, *args)
+
+                if file_size != int(file_info[FILE_SIZE]):
+                    is_valid = False
+                    self.umbrella_specification.__error_log.append(
+                        "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
+                        " had a file size of " + str(file_size) + " but the specification says it should be " +
+                        str(file_info[FILE_SIZE])
+                    )
+
+                if md5 and md5 != file_info[MD5]:
+                    is_valid = False
+                    self.umbrella_specification.__error_log.append(
+                        "The file named " + str(file_info[FILE_NAME]) + " on component " +
+                        str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
+                        " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
+                        str(file_info[MD5])
+                    )
 
             # MD5 and SIZE validation for all URL_SOURCES - passing callback function as self.umbrella_specification.callback_function
             # ...
-        else:
-            is_valid = False
 
         return is_valid
 
@@ -184,11 +286,15 @@ class UmbrellaFileInfoSubComponent(Component):
 
 
 class OsUmbrellaFileInfoSubComponent(UmbrellaFileInfoSubComponent):
-    __required_keys = [ID, URL_SOURCES, FILE_FORMAT, MD5, FILE_SIZE]
+    def __init__(self, umbrella_specification, component_name, component_json=None):
+        super(OsUmbrellaFileInfoSubComponent, self).__init__(umbrella_specification, component_name, component_json)
+
+        self.__required_keys[MOUNT_POINT] = None  # Remove this unrequired key
 
 
 class NameComponent(Component):
-    __required_keys = []
+    __type = str
+    __required_keys = {}
     is_required = False
 
     def validate(self):
@@ -198,7 +304,8 @@ class NameComponent(Component):
 
 
 class DescriptionComponent(Component):
-    __required_keys = []
+    __type = str
+    __required_keys = {}
     is_required = False
 
     def validate(self):
@@ -208,23 +315,53 @@ class DescriptionComponent(Component):
 
 
 class HardwareComponent(Component):
-    __required_keys = [ARCHITECTURE, CORES, MEMORY, DISK_SPACE]
+    __type = dict
+    __required_keys = {
+        ARCHITECTURE: {
+            TYPE: str,
+        },
+        CORES: {  # CORES should be converted to int later.
+            TYPE: str,
+        },
+        MEMORY: {  # MEMORY should be converted to int later. In addition, this will require it to be converted from 2gb to 2097152 (kb) or whatever seems to be a sensible measurement
+            TYPE: str,
+        },
+        DISK_SPACE: {  # DISK_SPACE should be converted to int later. In addition, this will require it to be converted from 2gb to 2097152 (kb) or whatever seems to be a sensible measurement
+            TYPE: str,
+        },
+    }
     is_required = True
 
 
 class KernelComponent(Component):
-    __required_keys = [NAME, VERSION]
+    __type = dict
+    __required_keys = {
+        NAME: {
+            TYPE: str,
+        },
+        VERSION: {
+            TYPE: str,
+        },
+    }
     is_required = True
 
 
 class OsComponent(Component):
-    __required_keys = [NAME, VERSION]
+    __type = dict
+    __required_keys = {
+        NAME: {
+            TYPE: str,
+        },
+        VERSION: {
+            TYPE: str,
+        },
+    }
     is_required = True
 
     def validate(self):
         is_valid = super(OsComponent, self).validate()
 
-        os_file_info = OsUmbrellaFileInfoSubComponent({OS: self.component_json}, OS)
+        os_file_info = OsUmbrellaFileInfoSubComponent({FILE_NAME: OS, "json": self.component_json}, OS)
 
         if not os_file_info.validate():
             is_valid = False
@@ -233,30 +370,50 @@ class OsComponent(Component):
 
 
 class PackageManagerComponent(Component):
-    __required_keys = [NAME, PACKAGES, REPOSITORIES]
+    __type = dict
+    __required_keys = {
+        NAME: {
+            TYPE: str,
+        },
+        PACKAGES: {  # PACKAGES should be converted to list later
+            TYPE: str,
+        },
+        REPOSITORIES: {
+            TYPE: dict,
+            NEST: {
+                TYPE: dict,
+                NEST: None,
+            },
+        },
+    }
     is_required = False
 
 
 class SoftwareComponent(Component):
-    __required_keys = []
+    __type = dict
+    __required_keys = {}
     is_required = False
 
 
 class DataFileComponent(Component):
-    __required_keys = []
+    __type = dict
+    __required_keys = {}
     is_required = False
 
 
 class EnvironmentVariableComponent(Component):
-    __required_keys = []
+    __type = dict
+    __required_keys = {}
     is_required = False
 
 
 class CommandComponent(Component):
-    __required_keys = []
+    __type = str
+    __required_keys = {}
     is_required = False
 
 
 class OutputComponent(Component):
-    __required_keys = [FILES, DIRECTORIES]
+    __type = dict
+    __required_keys = {FILES: list, DIRECTORIES: list}
     is_required = True

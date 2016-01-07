@@ -30,3 +30,11 @@ class UmbrellaError(object):
 
 class MissingComponentError(Exception):
     pass
+
+
+class ComponentTypeError(Exception):
+    pass
+
+
+class ProgrammingError(Exception):
+    pass
