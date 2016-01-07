@@ -2,7 +2,7 @@
 # All rights reserved
 import json
 
-from umbrella import MissingComponent, Component, MissingComponentError
+from umbrella import MissingComponent, Component, MissingComponentError, SPECIFICATION_COMPONENT_NAMES
 
 CONFIG = "config"
 FILE_NAME = "name"
@@ -12,37 +12,6 @@ MD5 = "checksum"
 FILE_SIZE = "size"
 UNCOMPRESSED_FILE_SIZE = "uncompressed_size"
 FILE_FORMAT = "format"
-
-SPECIFICATION_COMPONENTS = {
-    "hardware": {
-        "required": True,
-        "has_files": False,
-    },
-    "kernel": {
-        "required": True,
-        "has_files": False,
-    },
-    "os": {
-        "required": True,
-        "has_files": True,
-    },
-    "package_manager": {
-        "required": False,
-        "has_files": True,
-    },
-    "software": {
-        "required": False,
-        "has_files": True,
-    },
-    "data": {
-        "required": False,
-        "has_files": True,
-    },
-}
-
-SPECIFICATION_COMPONENT_NAMES = [
-    "comment", "note", "hardware", "kernel", "os", "package_manager", "software", "data", "environ", "cmd", "output",
-]
 
 
 class UmbrellaSpecification:
@@ -79,50 +48,6 @@ class UmbrellaSpecification:
     def warning_log(self):
         return self.__warning_log
 
-    @property
-    def comment(self):
-        return self.__get_component("comment")
-
-    @property
-    def note(self):
-        return self.__get_component("note")
-
-    @property
-    def hardware(self):
-        return self.__get_component("hardware")
-
-    @property
-    def kernel(self):
-        return self.__get_component("kernel")
-
-    @property
-    def os(self):
-        return self.__get_component("os")
-
-    @property
-    def package_manager(self):
-        return self.__get_component("package_manager")
-
-    @property
-    def software(self):
-        return self.__get_component("software")
-
-    @property
-    def data(self):
-        return self.__get_component("data")
-
-    @property
-    def environ(self):
-        return self.__get_component("environ")
-
-    @property
-    def cmd(self):
-        return self.__get_component("cmd")
-
-    @property
-    def output(self):
-        return self.__get_component("output")
-
     def validate2(self, callback_function=None, *args):
         is_valid = True
 
@@ -134,7 +59,7 @@ class UmbrellaSpecification:
 
         # Go through each of the known components and check their validity
         for component_name in SPECIFICATION_COMPONENT_NAMES:
-            component = self.__get_component(component_name)
+            component = self.get_component(component_name)
 
             try:
                 is_component_valid = component.validate()
@@ -150,78 +75,78 @@ class UmbrellaSpecification:
 
         return is_valid
 
-    def validate(self, callback_function=None, *args):
-        self.__error_log = []
-        self.__warning_log = []
+    # def validate(self, callback_function=None, *args):
+    #     self.__error_log = []
+    #     self.__warning_log = []
+    #
+    #     # Initialize lists
+    #     file_infos = []
+    #     valid_specification_components = []
+    #
+    #     # Cycle through all of the specification components in the file
+    #     for component_name, component in self.specification_json.iteritems():
+    #         if component_name in SPECIFICATION_COMPONENTS:  # Is this component in the whitelist, if so, check it
+    #             component = SPECIFICATION_COMPONENTS[component_name]
+    #             valid_specification_components.append(component_name)
+    #
+    #             if component["has_files"]:
+    #                 if component_name == "package_manager":  # Package Manager has config and goes one extra level  (3 levels)  # noqa
+    #                     component_file_info = self.specification_json[component_name][CONFIG]
+    #                 elif component_name == "os":  # OS is on the base level, so one less level                      (1 level)   # noqa
+    #                     component_file_info = {"os": self.specification_json[component_name]}
+    #                 else:  # Everything else has two levels                                                         (2 levels)  # noqa
+    #                     component_file_info = self.specification_json[component_name]
+    #
+    #                 # Loop through each file's info
+    #                 for name, file_info in component_file_info.iteritems():
+    #                     # OS has its name inside its general info section
+    #                     if component_name == "os":
+    #                         file_name = file_info[FILE_NAME]
+    #                     else:
+    #                         file_name = name
+    #
+    #                     file_infos.append({
+    #                         FILE_NAME: file_name,
+    #                         COMPONENT_NAME: component_name,
+    #                         URL_SOURCES: file_info[URL_SOURCES],
+    #                         MD5: file_info[MD5],
+    #                         FILE_SIZE: file_info[FILE_SIZE]
+    #                     })
+    #         else:  # Is this component not in the list of possible components, if so, it is unknown
+    #             self.__warning_log.append(
+    #                 'Specification component "' + str(component_name) +
+    #                 '" is an unknown component. Please check the spelling'
+    #             )
+    #
+    #     # Check for missing required components
+    #     for component_name, component in SPECIFICATION_COMPONENTS.iteritems():
+    #         # If the specification component is required and we didn't find it
+    #         if component["required"] and component_name not in valid_specification_components:
+    #             self.__error_log.append(
+    #                 'Specification component "' + str(component_name) +
+    #                 '" was missing from the supplied specification file'
+    #             )
+    #
+    #     for file_info in file_infos:
+    #         for url in file_info[URL_SOURCES]:
+    #             md5, file_size = self.__get_md5_and_file_size(url, file_info, callback_function, *args)
+    #
+    #             if file_size != int(file_info[FILE_SIZE]):
+    #                 self.__error_log.append(
+    #                     "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
+    #                     " had a file size of " + str(file_size) + " but the specification says it should be " +
+    #                     str(file_info[FILE_SIZE])
+    #                 )
+    #
+    #             if md5 and md5 != file_info[MD5]:
+    #                 self.__error_log.append(
+    #                     "The file named " + str(file_info[FILE_NAME]) + " on component " +
+    #                     str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
+    #                     " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
+    #                     str(file_info[MD5])
+    #                 )
 
-        # Initialize lists
-        file_infos = []
-        valid_specification_components = []
-
-        # Cycle through all of the specification components in the file
-        for component_name, component in self.specification_json.iteritems():
-            if component_name in SPECIFICATION_COMPONENTS:  # Is this component in the whitelist, if so, check it
-                component = SPECIFICATION_COMPONENTS[component_name]
-                valid_specification_components.append(component_name)
-
-                if component["has_files"]:
-                    if component_name == "package_manager":  # Package Manager has config and goes one extra level  (3 levels)  # noqa
-                        component_file_info = self.specification_json[component_name][CONFIG]
-                    elif component_name == "os":  # OS is on the base level, so one less level                      (1 level)   # noqa
-                        component_file_info = {"os": self.specification_json[component_name]}
-                    else:  # Everything else has two levels                                                         (2 levels)  # noqa
-                        component_file_info = self.specification_json[component_name]
-
-                    # Loop through each file's info
-                    for name, file_info in component_file_info.iteritems():
-                        # OS has its name inside its general info section
-                        if component_name == "os":
-                            file_name = file_info[FILE_NAME]
-                        else:
-                            file_name = name
-
-                        file_infos.append({
-                            FILE_NAME: file_name,
-                            COMPONENT_NAME: component_name,
-                            URL_SOURCES: file_info[URL_SOURCES],
-                            MD5: file_info[MD5],
-                            FILE_SIZE: file_info[FILE_SIZE]
-                        })
-            else:  # Is this component not in the list of possible components, if so, it is unknown
-                self.__warning_log.append(
-                    'Specification component "' + str(component_name) +
-                    '" is an unknown component. Please check the spelling'
-                )
-
-        # Check for missing required components
-        for component_name, component in SPECIFICATION_COMPONENTS.iteritems():
-            # If the specification component is required and we didn't find it
-            if component["required"] and component_name not in valid_specification_components:
-                self.__error_log.append(
-                    'Specification component "' + str(component_name) +
-                    '" was missing from the supplied specification file'
-                )
-
-        for file_info in file_infos:
-            for url in file_info[URL_SOURCES]:
-                md5, file_size = self.__get_md5_and_file_size(url, file_info, callback_function, *args)
-
-                if file_size != int(file_info[FILE_SIZE]):
-                    self.__error_log.append(
-                        "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
-                        " had a file size of " + str(file_size) + " but the specification says it should be " +
-                        str(file_info[FILE_SIZE])
-                    )
-
-                if md5 and md5 != file_info[MD5]:
-                    self.__error_log.append(
-                        "The file named " + str(file_info[FILE_NAME]) + " on component " +
-                        str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
-                        " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
-                        str(file_info[MD5])
-                    )
-
-    def __get_component(self, component_name):
+    def get_component(self, component_name):
         if component_name in self.specification_json:
             return Component.get_specific_component(self, component_name, self.specification_json[component_name])
         else:

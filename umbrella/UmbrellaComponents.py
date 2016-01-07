@@ -5,6 +5,26 @@ from umbrella.UmbrellaSpecification import FILE_SIZE, COMPONENT_NAME, FILE_NAME
 from umbrella.misc import get_md5_and_file_size
 
 
+SPECIFICATION_NAME = "comment"
+SPECIFICATION_DESCRIPTION = "note"
+HARDWARE = "hardware"
+KERNEL = "kernel"
+OS = "os"
+PACKAGE_MANAGER = "package_manager"
+SOFTWARE = "software"
+DATA_FILES = "data"
+ENVIRONMENT_VARIABLES = "environ"
+COMMANDS = "cmd"
+OUTPUT = "output"
+
+SOURCES = "source"
+
+SPECIFICATION_COMPONENT_NAMES = [
+    SPECIFICATION_NAME, SPECIFICATION_DESCRIPTION, HARDWARE, KERNEL, OS, PACKAGE_MANAGER, SOFTWARE, DATA_FILES,
+    ENVIRONMENT_VARIABLES, COMMANDS, OUTPUT,
+]
+
+
 class Component(object):
     __required_keys = []
     is_required = False
@@ -36,27 +56,27 @@ class Component(object):
         if not isinstance(component_name, (str, unicode)):
             raise TypeError("component_name must be a string.")
 
-        if component_name == "comment":
-            return CommentComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "note":
-            return NoteComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "hardware":
+        if component_name == SPECIFICATION_NAME:
+            return NameComponent(umbrella_specification, component_name, component_json)
+        elif component_name == SPECIFICATION_DESCRIPTION:
+            return DescriptionComponent(umbrella_specification, component_name, component_json)
+        elif component_name == HARDWARE:
             return HardwareComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "kernel":
+        elif component_name == KERNEL:
             return KernelComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "os":
+        elif component_name == OS:
             return OsComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "package_manager":
+        elif component_name == PACKAGE_MANAGER:
             return PackageManagerComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "software":
+        elif component_name == SOFTWARE:
             return SoftwareComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "data":
-            return DataComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "environ":
-            return EnvironComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "cmd":
-            return CmdComponent(umbrella_specification, component_name, component_json)
-        elif component_name == "output":
+        elif component_name == DATA_FILES:
+            return DataFileComponent(umbrella_specification, component_name, component_json)
+        elif component_name == ENVIRONMENT_VARIABLES:
+            return EnvironmentVariableComponent(umbrella_specification, component_name, component_json)
+        elif component_name == COMMANDS:
+            return CommandComponent(umbrella_specification, component_name, component_json)
+        elif component_name == OUTPUT:
             return OutputComponent(umbrella_specification, component_name, component_json)
         else:
             raise ValueError("There is no component called " + str(component_name))
@@ -68,18 +88,17 @@ class MissingComponent(Component):
 
 
 class UmbrellaFileInfoSubComponent(Component):
-    __required_keys = ["id", "source", "format", "checksum", "size", "mountpoint"]
-    __error_log = []
-    __warning_log = []
+    __required_keys = ["id", SOURCES, "format", "checksum", "size", "mountpoint"]
 
     def validate(self):
-        is_valid = True
-        self.__error_log = []
-        self.__warning_log = []
+        is_valid = super(UmbrellaFileInfoSubComponent, self).validate()
 
-        if "source" in self.file_json:
-            if not isinstance(self.file_json["source"], list):
-                raise TypeError("\"source\" must be a list")
+        if SOURCES in self.component_json:
+            if not isinstance(self.component_json[SOURCES], list):
+                raise TypeError('"' + SOURCES + '"' + " must be a list")
+
+            for source in self.component_json[SOURCES]:
+                pass
 
             # MD5 and SIZE validation for all sources - passing callback function as self.umbrella_specification_callback_function
             # ...
@@ -141,25 +160,25 @@ class UmbrellaFileInfoSubComponent(Component):
 
 
 class OsUmbrellaFileInfoSubComponent(UmbrellaFileInfoSubComponent):
-    __required_keys = ["id", "source", "format", "checksum", "size"]
+    __required_keys = ["id", SOURCES, "format", "checksum", "size"]
 
 
-class CommentComponent(Component):
+class NameComponent(Component):
     __required_keys = []
     is_required = False
 
     def validate(self):
-        is_valid = super(CommentComponent, self).validate()
+        is_valid = super(NameComponent, self).validate()
 
         return is_valid
 
 
-class NoteComponent(Component):
+class DescriptionComponent(Component):
     __required_keys = []
     is_required = False
 
     def validate(self):
-        is_valid = super(NoteComponent, self).validate()
+        is_valid = super(DescriptionComponent, self).validate()
 
         return is_valid
 
@@ -181,13 +200,9 @@ class OsComponent(Component):
     def validate(self):
         is_valid = super(OsComponent, self).validate()
 
-        if "source" in self.component_json:
-            os_file = OsUmbrellaFileInfoSubComponent(self.component_json["source"])
-            os_file_info = OsUmbrellaFileInfoSubComponent({"os": self.component_json})
-        else:
-            os_file = OsUmbrellaFileInfoSubComponent(None)
+        os_file_info = OsUmbrellaFileInfoSubComponent({OS: self.component_json}, OS)
 
-        if not os_file.validate():
+        if not os_file_info.validate():
             is_valid = False
 
         return is_valid
@@ -203,17 +218,17 @@ class SoftwareComponent(Component):
     is_required = False
 
 
-class DataComponent(Component):
+class DataFileComponent(Component):
     __required_keys = ["NEED_TO_DO"]
     is_required = False
 
 
-class EnvironComponent(Component):
+class EnvironmentVariableComponent(Component):
     __required_keys = ["NEED_TO_DO"]
     is_required = False
 
 
-class CmdComponent(Component):
+class CommandComponent(Component):
     __required_keys = ["NEED_TO_DO"]
     is_required = False
 
