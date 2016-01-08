@@ -52,7 +52,7 @@ SPECIFICATION_COMPONENT_NAMES = [
 
 
 class Component(object):
-    __type = str
+    __type = (str, unicode)
     __required_keys = {}
     is_required = False
 
@@ -69,7 +69,10 @@ class Component(object):
         is_valid = True
 
         if not isinstance(self.component_json, self.__type):
-            raise ComponentTypeError("Component \"" + str(self.name) + "\" must be of type \"" + str(self.__type) + '"')
+            raise ComponentTypeError(
+                "Component \"" + str(self.name) + "\" is of type \"" + str(type(self.component_json)) +
+                "\" but must be of type \"" + str(self.__type) + '"'
+            )
 
         if isinstance(self.component_json, dict):  # Keys only apply to components that are dictionaries
             for key, info in self.__required_keys.iteritems():
@@ -292,7 +295,7 @@ class OsUmbrellaFileInfoSubComponent(UmbrellaFileInfoSubComponent):
 
 
 class NameComponent(Component):
-    __type = str
+    __type = (str, unicode)
     __required_keys = {}
     is_required = False
 
@@ -303,7 +306,7 @@ class NameComponent(Component):
 
 
 class DescriptionComponent(Component):
-    __type = str
+    __type = (str, unicode)
     __required_keys = {}
     is_required = False
 
@@ -407,7 +410,7 @@ class EnvironmentVariableComponent(Component):
 
 
 class CommandComponent(Component):
-    __type = str
+    __type = (str, unicode)
     __required_keys = {}
     is_required = False
 
