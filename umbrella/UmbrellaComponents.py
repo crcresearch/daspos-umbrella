@@ -115,13 +115,12 @@ class Component(object):
                     if isinstance(subcomponent_json, dict):
                         subkey_name = key
 
-                    if not self.validate_subcomponent(subcomponent_json[key], info[NEST], key_name):
+                    if not self.validate_subcomponent(subcomponent_json[key], info[NEST], subkey_name):
                         is_valid = False
             else:
                 break
 
         return is_valid
-
 
     def set_type(self, new_type):
         if isinstance(new_type, type):

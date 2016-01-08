@@ -18,7 +18,7 @@
 
 import json
 
-from umbrella import MissingComponent, Component, MissingComponentError, SPECIFICATION_COMPONENT_NAMES
+from umbrella.UmbrellaComponents import MissingComponent, Component, MissingComponentError, SPECIFICATION_COMPONENT_NAMES
 
 
 class UmbrellaSpecification:
