@@ -6,6 +6,7 @@ from umbrella.misc import get_md5_and_file_size
 COMPONENT_NAME = "component_name"
 TYPE = "type"
 NEST = "nest"
+END_NEST = "end_nest"
 
 # Components
 SPECIFICATION_NAME = "comment"
@@ -94,14 +95,13 @@ class Component(object):
             raise ProgrammingError("subcomponent_json should not be None")
 
         if info is None:
-            return True
-            # if key_name == REPOSITORIES:  # Special case piece for "config" on package_manager. We will check the config (the files) in a different place
-            #     return True
-            # else:
-            #     raise ProgrammingError("info should not be None")
+            raise ProgrammingError("info should not be None")
 
         if key_name is None:
             raise ProgrammingError("key_name should not be None")
+
+        if info == END_NEST:  # This is used for things that do not need to look deeper (ie config for package_manager)
+            return True
 
         if not isinstance(subcomponent_json, info[TYPE]):  # Check if it is the right type
             is_valid = False
@@ -228,9 +228,6 @@ class UmbrellaFileInfo(Component):
                         " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
                         str(file_info[MD5])
                     )
-
-            # MD5 and SIZE validation for all URL_SOURCES - passing callback function as self.umbrella_specification.callback_function
-            # ...
 
         return is_valid
 
@@ -383,7 +380,7 @@ class PackageManagerComponent(Component):
             TYPE: dict,
             NEST: {
                 TYPE: dict,
-                NEST: None,
+                NEST: END_NEST,  # END_NEST is used to stop nest checking at this point
             },
         },
     }
@@ -416,5 +413,18 @@ class CommandComponent(Component):
 
 class OutputComponent(Component):
     _type = dict
-    _required_keys = {FILES: list, DIRECTORIES: list}
+    _required_keys = {
+        FILES: {
+            TYPE: list,
+            NEST: {
+                TYPE: (str, unicode),
+            },
+        },
+        DIRECTORIES: {
+            TYPE: list,
+            NEST: {
+                TYPE: (str, unicode),
+            },
+        },
+    }
     is_required = True
