@@ -158,7 +158,10 @@ class UmbrellaSpecification:
         if component_name in self.specification_json:
             return Component.get_specific_component(self, component_name, self.specification_json[component_name])
         else:
-            return MissingComponent(self, component_name)
+            missing_component = MissingComponent(self, component_name)
+            missing_component.is_required = Component.get_specific_component(self, component_name, None).is_required
+
+            return missing_component
 
 
 if __name__ == "__main__":
