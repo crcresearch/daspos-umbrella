@@ -57,8 +57,7 @@ class Component(object):
     _required_keys = {}
     is_required = False
 
-    def __init__(self, umbrella_specification, component_name, component_json=None):
-        self.umbrella_specification = umbrella_specification
+    def __init__(self, component_name, component_json=None):
         self.name = component_name
         self.component_json = component_json
 
@@ -66,7 +65,7 @@ class Component(object):
     def required_keys(self):
         return self._required_keys
 
-    def validate(self):
+    def validate(self, error_log):
         is_valid = True
 
         if not isinstance(self.component_json, self._type):
@@ -79,16 +78,16 @@ class Component(object):
             for key, info in self._required_keys.iteritems():
                 if key not in self.component_json:  # Required key is missing
                     is_valid = False
-                    self.umbrella_specification._error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
+                    error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
                 else:  # Required key is there, now check if it is set up right
-                    if not self.validate_subcomponent(self.component_json[key], info, key):  # Call this recursive function and check all pieces
+                    if not self.validate_subcomponent(error_log, self.component_json[key], info, key):  # Call this recursive function and check all pieces
                         is_valid = False
         elif len(self._required_keys) > 0:
             raise ProgrammingError("Check component \"" + str(self.name) + "\" and its _required_keys")
 
         return is_valid
 
-    def validate_subcomponent(self, subcomponent_json, info, key_name):
+    def validate_subcomponent(self, error_log, subcomponent_json, info, key_name):
         is_valid = True
 
         if subcomponent_json is None:
@@ -105,7 +104,7 @@ class Component(object):
 
         if not isinstance(subcomponent_json, info[TYPE]):  # Check if it is the right type
             is_valid = False
-            self.umbrella_specification._error_log.append(
+            error_log.append(
                 '"' + str(key_name) + "\" key or one of its children, in component \"" + str(self.name) +
                 "\" is of type \"" + str(type(subcomponent_json)) + "\" but should be of type \"" +
                 str(info[TYPE]) + '"')
@@ -116,14 +115,14 @@ class Component(object):
             for key in subcomponent_json:
                 subkey_name = key
 
-                if not self.validate_subcomponent(subcomponent_json[key], info[NEST], subkey_name):
+                if not self.validate_subcomponent(error_log, subcomponent_json[key], info[NEST], subkey_name):
                     is_valid = False
 
         if isinstance(subcomponent_json, list):
             for key in subcomponent_json:
                 subkey_name = key_name
 
-                if not self.validate_subcomponent(key, info[NEST], subkey_name):
+                if not self.validate_subcomponent(error_log, key, info[NEST], subkey_name):
                     is_valid = False
 
         return is_valid
@@ -135,38 +134,38 @@ class Component(object):
             raise TypeError("New type must be of type \"type\". Confusing huh? :)")
 
     @staticmethod
-    def get_specific_component(umbrella_specification, component_name, component_json):
+    def get_specific_component(component_name, component_json):
         if not isinstance(component_name, (str, unicode)):
             raise TypeError("component_name must be a string.")
 
         if component_name == SPECIFICATION_NAME:
-            return NameComponent(umbrella_specification, component_name, component_json)
+            return NameComponent(component_name, component_json)
         elif component_name == SPECIFICATION_DESCRIPTION:
-            return DescriptionComponent(umbrella_specification, component_name, component_json)
+            return DescriptionComponent(component_name, component_json)
         elif component_name == HARDWARE:
-            return HardwareComponent(umbrella_specification, component_name, component_json)
+            return HardwareComponent(component_name, component_json)
         elif component_name == KERNEL:
-            return KernelComponent(umbrella_specification, component_name, component_json)
+            return KernelComponent(component_name, component_json)
         elif component_name == OS:
-            return OsComponent(umbrella_specification, component_name, component_json)
+            return OsComponent(component_name, component_json)
         elif component_name == PACKAGE_MANAGER:
-            return PackageManagerComponent(umbrella_specification, component_name, component_json)
+            return PackageManagerComponent(component_name, component_json)
         elif component_name == SOFTWARE:
-            return SoftwareComponent(umbrella_specification, component_name, component_json)
+            return SoftwareComponent(component_name, component_json)
         elif component_name == DATA_FILES:
-            return DataFileComponent(umbrella_specification, component_name, component_json)
+            return DataFileComponent(component_name, component_json)
         elif component_name == ENVIRONMENT_VARIABLES:
-            return EnvironmentVariableComponent(umbrella_specification, component_name, component_json)
+            return EnvironmentVariableComponent(component_name, component_json)
         elif component_name == COMMANDS:
-            return CommandComponent(umbrella_specification, component_name, component_json)
+            return CommandComponent(component_name, component_json)
         elif component_name == OUTPUT:
-            return OutputComponent(umbrella_specification, component_name, component_json)
+            return OutputComponent(component_name, component_json)
         else:
             raise ValueError("There is no component called " + str(component_name))
 
 
 class MissingComponent(Component):
-    def validate(self):
+    def validate(self, error_log):
         raise MissingComponentError("Component " + str(self.name) + " doesn't exist")
 
 
@@ -197,13 +196,13 @@ class FileInfo(Component):
         },
     }
 
-    def __init__(self, file_name, umbrella_specification, component_name, component_json=None):
-        super(FileInfo, self).__init__(umbrella_specification, component_name, component_json)
+    def __init__(self, file_name, component_name, component_json=None):
+        super(FileInfo, self).__init__(component_name, component_json)
 
         self.file_name = file_name
 
-    def validate(self):
-        is_valid = super(FileInfo, self).validate()
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(FileInfo, self).validate(error_log)
 
         if is_valid:
             if not isinstance(self.component_json[URL_SOURCES], list):
@@ -212,13 +211,11 @@ class FileInfo(Component):
             file_info = self._get_file_info()
 
             for url in file_info[URL_SOURCES]:
-                callback_function = self.umbrella_specification.callback_function
-                args = self.umbrella_specification.args
-                md5, file_size = self._get_md5_and_file_size(url, file_info, callback_function, *args)
+                md5, file_size = self._get_md5_and_file_size(error_log, url, file_info, callback_function, *args)
 
                 if file_size != int(file_info[FILE_SIZE]):
                     is_valid = False
-                    self.umbrella_specification._error_log.append(
+                    error_log.append(
                         "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
                         " had a file size of " + str(file_size) + " but the specification says it should be " +
                         str(file_info[FILE_SIZE])
@@ -226,7 +223,7 @@ class FileInfo(Component):
 
                 if md5 and md5 != file_info[MD5]:
                     is_valid = False
-                    self.umbrella_specification._error_log.append(
+                    error_log.append(
                         "The file named " + str(file_info[FILE_NAME]) + " on component " +
                         str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
                         " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
@@ -246,11 +243,11 @@ class FileInfo(Component):
 
         return file_info
 
-    def _get_md5_and_file_size(self, the_file_or_url, file_info, callback_function=None, *args):
+    def _get_md5_and_file_size(self, error_log, the_file_or_url, file_info, callback_function=None, *args):
         if hasattr(the_file_or_url, "read"):
             return self._get_md5_and_file_size_via_file(the_file_or_url, file_info[FILE_SIZE], callback_function, *args)
         elif isinstance(the_file_or_url, (str, unicode)):
-            return self._get_md5_and_file_size_via_url(the_file_or_url, file_info, callback_function, *args)
+            return self._get_md5_and_file_size_via_url(error_log, the_file_or_url, file_info, callback_function, *args)
         else:
             raise ValueError("the_file_or_url must be a file or a string form of a url")
 
@@ -260,21 +257,21 @@ class FileInfo(Component):
 
         return get_md5_and_file_size(the_file, actual_file_size, callback_function, *args)
 
-    def _get_md5_and_file_size_via_url(self, url, file_info, callback_function=None, *args):
+    def _get_md5_and_file_size_via_url(self, error_log, url, file_info, callback_function=None, *args):
         if not isinstance(url, (str, unicode)):
             raise ValueError("Url must be in string form ")
 
         try:
             remote = urllib2.urlopen(url)
         except urllib2.HTTPError as error:
-            self.umbrella_specification._error_log.append(
+            error_log.append(
                 "Http error for url " + str(url) + " associated with the file named " +
                 str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
 
             return None, None
         except urllib2.URLError as error:
-            self.umbrella_specification._error_log.append(
+            error_log.append(
                 "Url error for url " + str(url) + " associated with the file named " +
                 str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
             )
@@ -286,7 +283,7 @@ class FileInfo(Component):
             file_size_from_url = int(remote.headers["content-length"])
 
             if int(file_size_from_url) != int(file_info[FILE_SIZE]):
-                self.umbrella_specification._error_log.append(
+                error_log.append(
                     "Url " + str(url) + " associated with the file named \"" +
                     str(file_info[FILE_NAME]) + "\" on component \"" + str(file_info[COMPONENT_NAME]) +
                     "\" reported a file size of " + str(file_size_from_url) +
@@ -327,8 +324,8 @@ class NameComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self):
-        is_valid = super(NameComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(NameComponent, self).validate(error_log)
 
         return is_valid
 
@@ -338,8 +335,8 @@ class DescriptionComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self):
-        is_valid = super(DescriptionComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(DescriptionComponent, self).validate(error_log)
 
         return is_valid
 
@@ -362,6 +359,11 @@ class HardwareComponent(Component):
     }
     is_required = True
 
+    def validate(self, error_log):
+        is_valid = super(HardwareComponent, self).validate(error_log)
+
+        return is_valid
+
 
 class KernelComponent(Component):
     _type = dict
@@ -374,6 +376,11 @@ class KernelComponent(Component):
         },
     }
     is_required = True
+
+    def validate(self, error_log):
+        is_valid = super(KernelComponent, self).validate(error_log)
+
+        return is_valid
 
 
 class OsComponent(Component):
@@ -388,12 +395,12 @@ class OsComponent(Component):
     }
     is_required = True
 
-    def validate(self):
-        is_valid = super(OsComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(OsComponent, self).validate(error_log)
 
-        file_info = OsFileInfo(self.component_json[FILE_NAME], self.umbrella_specification, OS, self.component_json)
+        file_info = OsFileInfo(self.component_json[FILE_NAME], OS, self.component_json)
 
-        if not file_info.validate():
+        if not file_info.validate(error_log):
             is_valid = False
 
         return is_valid
@@ -418,14 +425,14 @@ class PackageManagerComponent(Component):
     }
     is_required = False
 
-    def validate(self):
-        is_valid = super(PackageManagerComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(PackageManagerComponent, self).validate(error_log)
 
         if REPOSITORIES in self.component_json and isinstance(self.component_json[REPOSITORIES], dict):
             for repository_name, repository_file_info in self.component_json[REPOSITORIES].iteritems():
-                file_info = FileInfo(repository_name, self.umbrella_specification, self.name, repository_file_info)
+                file_info = FileInfo(repository_name, self.name, repository_file_info)
 
-                if not file_info.validate():
+                if not file_info.validate(error_log):
                     is_valid = False
 
         return is_valid
@@ -436,13 +443,13 @@ class SoftwareComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self):
-        is_valid = super(SoftwareComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(SoftwareComponent, self).validate(error_log)
 
         for software_name, software_file_info in self.component_json.iteritems():
-            file_info = FileInfo(software_name, self.umbrella_specification, self.name, software_file_info)
+            file_info = FileInfo(software_name, self.name, software_file_info)
 
-            if not file_info.validate():
+            if not file_info.validate(error_log):
                 is_valid = False
 
         return is_valid
@@ -453,13 +460,13 @@ class DataFileComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self):
-        is_valid = super(DataFileComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(DataFileComponent, self).validate(error_log)
 
         for data_file_name, data_file_info in self.component_json.iteritems():
-            file_info = FileInfo(data_file_name, self.umbrella_specification, self.name, data_file_info)
+            file_info = FileInfo(data_file_name, self.name, data_file_info)
 
-            if not file_info.validate():
+            if not file_info.validate(error_log):
                 is_valid = False
 
         return is_valid
@@ -470,13 +477,13 @@ class EnvironmentVariableComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self):
-        is_valid = super(EnvironmentVariableComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(EnvironmentVariableComponent, self).validate(error_log)
 
         for environment_variable, value in self.component_json.iteritems():
             if not isinstance(value, (str, unicode)):
                 is_valid = False
-                self.umbrella_specification._error_log.append(
+                error_log.append(
                     "Environment variable \"" + str(environment_variable) + "\" on component \"" + str(self.name) +
                     "\" is of type \"" + str(type(value)) + "\" but should be of type \"str\""
                 )
@@ -489,8 +496,8 @@ class CommandComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self):
-        is_valid = super(CommandComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(CommandComponent, self).validate(error_log)
 
         return is_valid
 
@@ -513,7 +520,7 @@ class OutputComponent(Component):
     }
     is_required = True
 
-    def validate(self):
-        is_valid = super(OutputComponent, self).validate()
+    def validate(self, error_log):
+        is_valid = super(OutputComponent, self).validate(error_log)
 
         return is_valid

@@ -70,7 +70,7 @@ class UmbrellaSpecification:
             component = self.get_component(component_name)
 
             try:
-                is_component_valid = component.validate()
+                is_component_valid = component.validate(self._error_log)
             except MissingComponentError:
                 if component.is_required:
                     self._error_log.append("Component \"" + str(component_name) + "\" is required")
@@ -85,13 +85,9 @@ class UmbrellaSpecification:
 
     def get_component(self, component_name):
         if component_name in self.specification_json:
-            return Component.get_specific_component(self, component_name, self.specification_json[component_name])
+            return Component.get_specific_component(component_name, self.specification_json[component_name])
         else:
-            missing_component = MissingComponent(self, component_name)
-            missing_component.is_required = Component.get_specific_component(self, component_name, None).is_required
+            missing_component = MissingComponent(component_name)
+            missing_component.is_required = Component.get_specific_component(component_name, None).is_required
 
             return missing_component
-
-
-if __name__ == "__main__":
-    pass
