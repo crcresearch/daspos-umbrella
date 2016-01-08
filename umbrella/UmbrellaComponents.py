@@ -110,15 +110,20 @@ class Component(object):
                 "\" is of type \"" + str(type(subcomponent_json)) + "\" but should be of type \"" +
                 str(info[TYPE]) + '"')
 
-        if isinstance(subcomponent_json, (list, dict)):
+        # Dictionaries will have key_names, but lists won't. If it is a list, we will just use last dictionary's key_name
+
+        if isinstance(subcomponent_json, dict):
+            for key in subcomponent_json:
+                subkey_name = key
+
+                if not self.validate_subcomponent(subcomponent_json[key], info[NEST], subkey_name):
+                    is_valid = False
+
+        if isinstance(subcomponent_json, list):
             for key in subcomponent_json:
                 subkey_name = key_name
 
-                # Dictionaries will have key_names, but lists won't. If it is a list, we will just use last dictionary's key_name
-                if isinstance(subcomponent_json, dict):
-                    subkey_name = key
-
-                if not self.validate_subcomponent(subcomponent_json[key], info[NEST], subkey_name):
+                if not self.validate_subcomponent(key, info[NEST], subkey_name):
                     is_valid = False
 
         return is_valid
@@ -284,10 +289,27 @@ class UmbrellaFileInfo(Component):
 
 
 class OsUmbrellaFileInfo(UmbrellaFileInfo):
-    def __init__(self, umbrella_specification, component_name, component_json=None):
-        super(OsUmbrellaFileInfo, self).__init__(umbrella_specification, component_name, component_json)
-
-        self._required_keys[MOUNT_POINT] = None  # Remove this unrequired key
+    _required_keys = {
+        ID: {
+            TYPE: (str, unicode),
+        },
+        URL_SOURCES: {
+            TYPE: list,
+            NEST: {
+                TYPE: (str, unicode),
+            },
+        },
+        FILE_FORMAT: {
+            TYPE: (str, unicode),
+        },
+        MD5: {
+            TYPE: (str, unicode),
+        },
+        # FILE_SIZE should later be changed to int
+        FILE_SIZE: {
+            TYPE: (str, unicode),
+        },
+    }
 
 
 class NameComponent(Component):
@@ -359,7 +381,7 @@ class OsComponent(Component):
     def validate(self):
         is_valid = super(OsComponent, self).validate()
 
-        os_file_info = OsUmbrellaFileInfo(self.umbrella_specification, OS, {FILE_NAME: OS, "json": self.component_json})
+        os_file_info = OsUmbrellaFileInfo(self.umbrella_specification, OS, self.component_json)
 
         if not os_file_info.validate():
             is_valid = False
