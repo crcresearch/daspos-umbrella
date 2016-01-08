@@ -170,7 +170,7 @@ class MissingComponent(Component):
         raise MissingComponentError("Component " + str(self.name) + " doesn't exist")
 
 
-class UmbrellaFileInfo(Component):
+class FileInfo(Component):
     _type = dict
     _required_keys = {
         ID: {
@@ -198,7 +198,7 @@ class UmbrellaFileInfo(Component):
     }
 
     def validate(self):
-        is_valid = super(UmbrellaFileInfo, self).validate()
+        is_valid = super(FileInfo, self).validate()
 
         if is_valid:
             if not isinstance(self.component_json[URL_SOURCES], list):
@@ -288,7 +288,7 @@ class UmbrellaFileInfo(Component):
         return get_md5_and_file_size(remote, file_size_from_url, callback_function, *args)
 
 
-class OsUmbrellaFileInfo(UmbrellaFileInfo):
+class OsFileInfo(FileInfo):
     _required_keys = {
         ID: {
             TYPE: (str, unicode),
@@ -381,7 +381,7 @@ class OsComponent(Component):
     def validate(self):
         is_valid = super(OsComponent, self).validate()
 
-        os_file_info = OsUmbrellaFileInfo(self.umbrella_specification, OS, self.component_json)
+        os_file_info = OsFileInfo(self.umbrella_specification, OS, self.component_json)
 
         if not os_file_info.validate():
             is_valid = False
