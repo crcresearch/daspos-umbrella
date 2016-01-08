@@ -197,6 +197,11 @@ class FileInfo(Component):
         },
     }
 
+    def __init__(self, file_name, umbrella_specification, component_name, component_json=None):
+        super(FileInfo, self).__init__(umbrella_specification, component_name, component_json)
+
+        self.file_name = file_name
+
     def validate(self):
         is_valid = super(FileInfo, self).validate()
 
@@ -204,18 +209,12 @@ class FileInfo(Component):
             if not isinstance(self.component_json[URL_SOURCES], list):
                 raise TypeError('"' + URL_SOURCES + '"' + " must be a list")
 
-            file_info = {}
-
-            file_info[FILE_NAME] = self.component_json[FILE_NAME]
-            file_info[COMPONENT_NAME] = self.name
-            file_info[URL_SOURCES] = self.component_json[URL_SOURCES]
-            file_info[MD5] = self.component_json[MD5]
-            file_info[FILE_SIZE] = self.component_json[FILE_SIZE]
+            file_info = self._get_file_info()
 
             for url in file_info[URL_SOURCES]:
                 callback_function = self.umbrella_specification.callback_function
                 args = self.umbrella_specification.args
-                md5, file_size = self.__get_md5_and_file_size(url, file_info, callback_function, *args)
+                md5, file_size = self._get_md5_and_file_size(url, file_info, callback_function, *args)
 
                 if file_size != int(file_info[FILE_SIZE]):
                     is_valid = False
@@ -236,21 +235,32 @@ class FileInfo(Component):
 
         return is_valid
 
-    def __get_md5_and_file_size(self, the_file_or_url, file_info, callback_function=None, *args):
+    def _get_file_info(self):
+        file_info = {}
+
+        file_info[FILE_NAME] = self.file_name
+        file_info[COMPONENT_NAME] = self.name
+        file_info[URL_SOURCES] = self.component_json[URL_SOURCES]
+        file_info[MD5] = self.component_json[MD5]
+        file_info[FILE_SIZE] = self.component_json[FILE_SIZE]
+
+        return file_info
+
+    def _get_md5_and_file_size(self, the_file_or_url, file_info, callback_function=None, *args):
         if hasattr(the_file_or_url, "read"):
-            return self.__get_md5_and_file_size_via_file(the_file_or_url, file_info[FILE_SIZE], callback_function, *args)
+            return self._get_md5_and_file_size_via_file(the_file_or_url, file_info[FILE_SIZE], callback_function, *args)
         elif isinstance(the_file_or_url, (str, unicode)):
-            return self.__get_md5_and_file_size_via_url(the_file_or_url, file_info, callback_function, *args)
+            return self._get_md5_and_file_size_via_url(the_file_or_url, file_info, callback_function, *args)
         else:
             raise ValueError("the_file_or_url must be a file or a string form of a url")
 
-    def __get_md5_and_file_size_via_file(self, the_file, actual_file_size, callback_function=None, *args):
+    def _get_md5_and_file_size_via_file(self, the_file, actual_file_size, callback_function=None, *args):
         if not hasattr(the_file, "read"):
             raise ValueError("the_file must be an open file ")
 
         return get_md5_and_file_size(the_file, actual_file_size, callback_function, *args)
 
-    def __get_md5_and_file_size_via_url(self, url, file_info, callback_function=None, *args):
+    def _get_md5_and_file_size_via_url(self, url, file_info, callback_function=None, *args):
         if not isinstance(url, (str, unicode)):
             raise ValueError("Url must be in string form ")
 
@@ -381,9 +391,9 @@ class OsComponent(Component):
     def validate(self):
         is_valid = super(OsComponent, self).validate()
 
-        os_file_info = OsFileInfo(self.umbrella_specification, OS, self.component_json)
+        file_info = OsFileInfo(self.component_json[FILE_NAME], self.umbrella_specification, OS, self.component_json)
 
-        if not os_file_info.validate():
+        if not file_info.validate():
             is_valid = False
 
         return is_valid
@@ -407,6 +417,18 @@ class PackageManagerComponent(Component):
         },
     }
     is_required = False
+
+    def validate(self):
+        is_valid = super(PackageManagerComponent, self).validate()
+
+        if REPOSITORIES in self.component_json and isinstance(self.component_json[REPOSITORIES], dict):
+            for repository_name, repository_file_info in self.component_json[REPOSITORIES].iteritems():
+                file_info = FileInfo(repository_name, self.umbrella_specification, self.name, repository_file_info)
+
+                if not file_info.validate():
+                    is_valid = False
+
+        return is_valid
 
 
 class SoftwareComponent(Component):
