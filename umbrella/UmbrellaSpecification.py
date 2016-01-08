@@ -18,7 +18,8 @@
 
 import json
 
-from umbrella.UmbrellaComponents import MissingComponent, Component, MissingComponentError, SPECIFICATION_COMPONENT_NAMES
+from umbrella.UmbrellaComponents import MissingComponent, Component, MissingComponentError, \
+    SPECIFICATION_ROOT_COMPONENT_NAMES
 
 
 class UmbrellaSpecification:
@@ -26,8 +27,8 @@ class UmbrellaSpecification:
     Note this class is NOT thread safe. Do not use it in multithreaded environment.
     """
     def __init__(self, specification_file=None):
-        self.__error_log = []
-        self.__warning_log = []
+        self._error_log = []
+        self._warning_log = []
         self.callback_function = lambda *args, **kwargs: True
         self.args = []
 
@@ -49,30 +50,30 @@ class UmbrellaSpecification:
 
     @property
     def error_log(self):
-        return self.__error_log
+        return self._error_log
 
     @property
     def warning_log(self):
-        return self.__warning_log
+        return self._warning_log
 
     def validate(self, callback_function=None, *args):
         is_valid = True
 
-        self.__error_log = []
-        self.__warning_log = []
+        self._error_log = []
+        self._warning_log = []
 
         self.callback_function = callback_function
         self.args = args
 
         # Go through each of the known components and check their validity
-        for component_name in SPECIFICATION_COMPONENT_NAMES:
+        for component_name in SPECIFICATION_ROOT_COMPONENT_NAMES:
             component = self.get_component(component_name)
 
             try:
                 is_component_valid = component.validate()
             except MissingComponentError:
                 if component.is_required:
-                    self.__error_log.append("Component " + str(component_name) + " is required")
+                    self._error_log.append("Component " + str(component_name) + " is required")
                     is_component_valid = False
                 else:
                     is_component_valid = True
@@ -83,8 +84,8 @@ class UmbrellaSpecification:
         return is_valid
 
     # def validate(self, callback_function=None, *args):
-    #     self.__error_log = []
-    #     self.__warning_log = []
+    #     self._error_log = []
+    #     self._warning_log = []
     #
     #     # Initialize lists
     #     file_infos = []
@@ -120,7 +121,7 @@ class UmbrellaSpecification:
     #                         FILE_SIZE: file_info[FILE_SIZE]
     #                     })
     #         else:  # Is this component not in the list of possible components, if so, it is unknown
-    #             self.__warning_log.append(
+    #             self._warning_log.append(
     #                 'Specification component "' + str(component_name) +
     #                 '" is an unknown component. Please check the spelling'
     #             )
@@ -129,7 +130,7 @@ class UmbrellaSpecification:
     #     for component_name, component in SPECIFICATION_COMPONENTS.iteritems():
     #         # If the specification component is required and we didn't find it
     #         if component["required"] and component_name not in valid_specification_components:
-    #             self.__error_log.append(
+    #             self._error_log.append(
     #                 'Specification component "' + str(component_name) +
     #                 '" was missing from the supplied specification file'
     #             )
@@ -139,14 +140,14 @@ class UmbrellaSpecification:
     #             md5, file_size = self.__get_md5_and_file_size(url, file_info, callback_function, *args)
     #
     #             if file_size != int(file_info[FILE_SIZE]):
-    #                 self.__error_log.append(
+    #                 self._error_log.append(
     #                     "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
     #                     " had a file size of " + str(file_size) + " but the specification says it should be " +
     #                     str(file_info[FILE_SIZE])
     #                 )
     #
     #             if md5 and md5 != file_info[MD5]:
-    #                 self.__error_log.append(
+    #                 self._error_log.append(
     #                     "The file named " + str(file_info[FILE_NAME]) + " on component " +
     #                     str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
     #                     " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
