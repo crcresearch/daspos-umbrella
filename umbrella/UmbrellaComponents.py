@@ -287,9 +287,9 @@ class FileInfo(Component):
 
             if int(file_size_from_url) != int(file_info[FILE_SIZE]):
                 self.umbrella_specification._error_log.append(
-                    "Url " + str(url) + " associated with the file named " +
-                    str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
-                    " reported a file size of " + str(file_size_from_url) +
+                    "Url " + str(url) + " associated with the file named \"" +
+                    str(file_info[FILE_NAME]) + "\" on component \"" + str(file_info[COMPONENT_NAME]) +
+                    "\" reported a file size of " + str(file_size_from_url) +
                     " but the specification says it should be " + str(file_info[FILE_SIZE])
                 )
         except KeyError:
@@ -436,11 +436,33 @@ class SoftwareComponent(Component):
     _required_keys = {}
     is_required = False
 
+    def validate(self):
+        is_valid = super(SoftwareComponent, self).validate()
+
+        for software_name, software_file_info in self.component_json.iteritems():
+            file_info = FileInfo(software_name, self.umbrella_specification, self.name, software_file_info)
+
+            if not file_info.validate():
+                is_valid = False
+
+        return is_valid
+
 
 class DataFileComponent(Component):
     _type = dict
     _required_keys = {}
     is_required = False
+
+    def validate(self):
+        is_valid = super(DataFileComponent, self).validate()
+
+        for data_file_name, data_file_info in self.component_json.iteritems():
+            file_info = FileInfo(data_file_name, self.umbrella_specification, self.name, data_file_info)
+
+            if not file_info.validate():
+                is_valid = False
+
+        return is_valid
 
 
 class EnvironmentVariableComponent(Component):
@@ -448,11 +470,29 @@ class EnvironmentVariableComponent(Component):
     _required_keys = {}
     is_required = False
 
+    def validate(self):
+        is_valid = super(EnvironmentVariableComponent, self).validate()
+
+        for environment_variable, value in self.component_json.iteritems():
+            if not isinstance(value, (str, unicode)):
+                is_valid = False
+                self.umbrella_specification._error_log.append(
+                    "Environment variable \"" + str(environment_variable) + "\" on component \"" + str(self.name) +
+                    "\" is of type \"" + str(type(value)) + "\" but should be of type \"str\""
+                )
+
+        return is_valid
+
 
 class CommandComponent(Component):
     _type = (str, unicode)
     _required_keys = {}
     is_required = False
+
+    def validate(self):
+        is_valid = super(CommandComponent, self).validate()
+
+        return is_valid
 
 
 class OutputComponent(Component):
@@ -472,3 +512,8 @@ class OutputComponent(Component):
         },
     }
     is_required = True
+
+    def validate(self):
+        is_valid = super(OutputComponent, self).validate()
+
+        return is_valid
