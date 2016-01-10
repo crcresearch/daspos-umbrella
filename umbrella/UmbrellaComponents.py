@@ -65,7 +65,7 @@ class Component(object):
     def required_keys(self):
         return self._required_keys
 
-    def validate(self, error_log):
+    def validate(self, error_log, callback_function=None, *args):
         is_valid = True
 
         if not isinstance(self.component_json, self._type):
@@ -165,7 +165,7 @@ class Component(object):
 
 
 class MissingComponent(Component):
-    def validate(self, error_log):
+    def validate(self, error_log, callback_function=None, *args):
         raise MissingComponentError("Component " + str(self.name) + " doesn't exist")
 
 
@@ -324,7 +324,7 @@ class NameComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self, error_log):
+    def validate(self, error_log, callback_function=None, *args):
         is_valid = super(NameComponent, self).validate(error_log)
 
         return is_valid
@@ -335,7 +335,7 @@ class DescriptionComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self, error_log):
+    def validate(self, error_log, callback_function=None, *args):
         is_valid = super(DescriptionComponent, self).validate(error_log)
 
         return is_valid
@@ -359,7 +359,7 @@ class HardwareComponent(Component):
     }
     is_required = True
 
-    def validate(self, error_log):
+    def validate(self, error_log, callback_function=None, *args):
         is_valid = super(HardwareComponent, self).validate(error_log)
 
         return is_valid
@@ -377,8 +377,8 @@ class KernelComponent(Component):
     }
     is_required = True
 
-    def validate(self, error_log):
-        is_valid = super(KernelComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(KernelComponent, self).validate(error_log, callback_function, *args)
 
         return is_valid
 
@@ -395,12 +395,12 @@ class OsComponent(Component):
     }
     is_required = True
 
-    def validate(self, error_log):
+    def validate(self, error_log, callback_function=None, *args):
         is_valid = super(OsComponent, self).validate(error_log)
 
         file_info = OsFileInfo(self.component_json[FILE_NAME], OS, self.component_json)
 
-        if not file_info.validate(error_log):
+        if not file_info.validate(error_log, callback_function, *args):
             is_valid = False
 
         return is_valid
@@ -425,14 +425,14 @@ class PackageManagerComponent(Component):
     }
     is_required = False
 
-    def validate(self, error_log):
-        is_valid = super(PackageManagerComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(PackageManagerComponent, self).validate(error_log, callback_function, *args)
 
         if REPOSITORIES in self.component_json and isinstance(self.component_json[REPOSITORIES], dict):
             for repository_name, repository_file_info in self.component_json[REPOSITORIES].iteritems():
                 file_info = FileInfo(repository_name, self.name, repository_file_info)
 
-                if not file_info.validate(error_log):
+                if not file_info.validate(error_log, callback_function, *args):
                     is_valid = False
 
         return is_valid
@@ -443,8 +443,8 @@ class SoftwareComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self, error_log):
-        is_valid = super(SoftwareComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(SoftwareComponent, self).validate(error_log, callback_function, *args)
 
         for software_name, software_file_info in self.component_json.iteritems():
             file_info = FileInfo(software_name, self.name, software_file_info)
