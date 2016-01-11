@@ -552,10 +552,17 @@ class EnvironmentVariableComponent(Component):
         for environment_variable, value in self.component_json.iteritems():
             if not isinstance(value, (str, unicode)):
                 is_valid = False
-                error_log.append(
-                    "Environment variable \"" + str(environment_variable) + "\" on component \"" + str(self.name) +
-                    "\" is of type \"" + str(type(value)) + "\" but should be of type \"str\""
+                umbrella_error = UmbrellaError(
+                    error_code=WRONG_ATTRIBUTE_TYPE_ERROR_CODE,
+                    description="Attribute is of type \"" + str(type(value)) + "\" but should be of type \"" +
+                                str((str, unicode)) + "\"",
+                    may_be_temporary=False,
+                    component_name=self.name,
                 )
+                # error_log.append(
+                #     "Environment variable \"" + str(environment_variable) + "\" on component \"" + str(self.name) +
+                #     "\" is of type \"" + str(type(value)) + "\" but should be of type \"str\""
+                # )
 
         return is_valid
 
