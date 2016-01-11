@@ -17,7 +17,9 @@
 # limitations under the License.
 import urllib2
 
-from umbrella.umbrella_errors import MissingComponentError, ComponentTypeError, ProgrammingError
+from umbrella.umbrella_errors import MissingComponentError, ComponentTypeError, ProgrammingError, UmbrellaError, \
+    REQUIRED_ATTRIBUTE_MISSING_ERROR_CODE, WRONG_ATTRIBUTE_TYPE_ERROR_CODE, WRONG_FILE_SIZE_ERROR_CODE, \
+    WRONG_MD5_ERROR_CODE, BAD_URL_ERROR_CODE
 from umbrella.misc import get_md5_and_file_size
 
 COMPONENT_NAME = "component_name"
@@ -98,7 +100,14 @@ class Component(object):
             for key, info in self._required_keys.iteritems():
                 if key not in self.component_json:  # Required key is missing
                     is_valid = False
-                    error_log.append("\"%s\" key is required in %s component" % (key, self.name))  # noqa
+                    umbrella_error = UmbrellaError(
+                        error_code=REQUIRED_ATTRIBUTE_MISSING_ERROR_CODE,
+                        description="Attribute \"" + str(key) + "\" is required",
+                        may_be_temporary=False,
+                        component_name=self.name
+                    )
+                    error_log.append(umbrella_error)
+                    # error_log.append("\"%s\" key is required in %s component" % (key, self.name))
                 else:  # Required key is there, now check if it is set up right
                     if not self.validate_subcomponent(error_log, self.component_json[key], info, key):  # Call this recursive function and check all pieces
                         is_valid = False
@@ -124,10 +133,17 @@ class Component(object):
 
         if not isinstance(subcomponent_json, info[TYPE]):  # Check if it is the right type
             is_valid = False
-            error_log.append(
-                '"' + str(key_name) + "\" key or one of its children, in component \"" + str(self.name) +
-                "\" is of type \"" + str(type(subcomponent_json)) + "\" but should be of type \"" +
-                str(info[TYPE]) + '"')
+            umbrella_error = UmbrellaError(
+                error_code=WRONG_ATTRIBUTE_TYPE_ERROR_CODE,
+                description="Attribute \"" + str(key_name) + "\" is of type \"" + str(type(subcomponent_json)) +
+                            "\" but should be of type \"" + str(info[TYPE]) + '"',
+                may_be_temporary=False, component_name=self.name
+            )
+            error_log.append(umbrella_error)
+            # error_log.append(
+            #     '"' + str(key_name) + "\" key or one of its children, in component \"" + str(self.name) +
+            #     "\" is of type \"" + str(type(subcomponent_json)) + "\" but should be of type \"" +
+            #     str(info[TYPE]) + '"')
 
         # Dictionaries will have key_names, but lists won't. If it is a list, we will just use last dictionary's key_name
 
@@ -233,22 +249,43 @@ class FileInfo(Component):
             for url in file_info[URL_SOURCES]:
                 md5, file_size = self._get_md5_and_file_size(error_log, url, file_info, callback_function, *args)
 
-                if file_size != int(file_info[FILE_SIZE]):
+                if file_size and file_size != int(file_info[FILE_SIZE]):
                     is_valid = False
-                    error_log.append(
-                        "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
-                        " had a file size of " + str(file_size) + " but the specification says it should be " +
-                        str(file_info[FILE_SIZE])
+                    umbrella_error = UmbrellaError(
+                        error_code=WRONG_FILE_SIZE_ERROR_CODE,
+                        description="File size was " + str(file_size) +
+                                    " bytes but the specification says it should be " + str(file_info[FILE_SIZE]) +
+                                    " bytes",
+                        may_be_temporary=False,
+                        component_name=self.name,
+                        file_name=file_info[FILE_NAME],
+                        url=url
                     )
+                    error_log.append(umbrella_error)
+                    # error_log.append(
+                    #     "The file named " + str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) +
+                    #     " had a file size of " + str(file_size) + " but the specification says it should be " +
+                    #     str(file_info[FILE_SIZE])
+                    # )
 
                 if md5 and md5 != file_info[MD5]:
                     is_valid = False
-                    error_log.append(
-                        "The file named " + str(file_info[FILE_NAME]) + " on component " +
-                        str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
-                        " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
-                        str(file_info[MD5])
+                    umbrella_error = UmbrellaError(
+                        error_code=WRONG_MD5_ERROR_CODE,
+                        description="Checksum was \"" + str(md5) + "\" but the specification says it should be " +
+                                    str(file_info[MD5]),
+                        may_be_temporary=False,
+                        component_name=self.name,
+                        file_name=file_info[FILE_NAME],
+                        url=url
                     )
+                    error_log.append(umbrella_error)
+                    # error_log.append(
+                    #     "The file named " + str(file_info[FILE_NAME]) + " on component " +
+                    #     str(file_info[COMPONENT_NAME]) + " from the url source of " + str(url) +
+                    #     " had a calculated md5 of " + str(md5) + " but the specification says it should be " +
+                    #     str(file_info[MD5])
+                    # )
 
         return is_valid
 
@@ -284,31 +321,43 @@ class FileInfo(Component):
         try:
             remote = urllib2.urlopen(url)
         except urllib2.HTTPError as error:
-            error_log.append(
-                "Http error for url " + str(url) + " associated with the file named " +
-                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            umbrella_error = UmbrellaError(
+                error_code=BAD_URL_ERROR_CODE, description="Http error \"" + str(error) + '"',
+                may_be_temporary=True, component_name=str(file_info[FILE_NAME]), file_name=str(file_info[FILE_NAME]),
+                url=str(url)
             )
+            error_log.append(umbrella_error)
+            # error_log.append(
+            #     "Http error for url " + str(url) + " associated with the file named " +
+            #     str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            # )
 
             return None, None
         except urllib2.URLError as error:
-            error_log.append(
-                "Url error for url " + str(url) + " associated with the file named " +
-                str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            umbrella_error = UmbrellaError(
+                error_code=BAD_URL_ERROR_CODE, description="Url error \"" + str(error) + '"',
+                may_be_temporary=True, component_name=str(file_info[FILE_NAME]), file_name=str(file_info[FILE_NAME]),
+                url=str(url)
             )
+            error_log.append(umbrella_error)
+            # error_log.append(
+            #     "Url error for url " + str(url) + " associated with the file named " +
+            #     str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
+            # )
 
             return None, None
 
         # Get the file_size from the website. Some websites (old ones) may not give this information
         try:
             file_size_from_url = int(remote.headers["content-length"])
-
-            if int(file_size_from_url) != int(file_info[FILE_SIZE]):
-                error_log.append(
-                    "Url " + str(url) + " associated with the file named \"" +
-                    str(file_info[FILE_NAME]) + "\" on component \"" + str(file_info[COMPONENT_NAME]) +
-                    "\" reported a file size of " + str(file_size_from_url) +
-                    " but the specification says it should be " + str(file_info[FILE_SIZE])
-                )
+            #
+            # if int(file_size_from_url) != int(file_info[FILE_SIZE]):
+            #     error_log.append(
+            #         "Url " + str(url) + " associated with the file named \"" +
+            #         str(file_info[FILE_NAME]) + "\" on component \"" + str(file_info[COMPONENT_NAME]) +
+            #         "\" reported a file size of " + str(file_size_from_url) +
+            #         " but the specification says it should be " + str(file_info[FILE_SIZE])
+            #     )
         except KeyError:
             file_size_from_url = None
 
@@ -480,8 +529,8 @@ class DataFileComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self, error_log):
-        is_valid = super(DataFileComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(DataFileComponent, self).validate(error_log, callback_function, *args)
 
         for data_file_name, data_file_info in self.component_json.iteritems():
             file_info = FileInfo(data_file_name, self.name, data_file_info)
@@ -497,8 +546,8 @@ class EnvironmentVariableComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self, error_log):
-        is_valid = super(EnvironmentVariableComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(EnvironmentVariableComponent, self).validate(error_log, callback_function, *args)
 
         for environment_variable, value in self.component_json.iteritems():
             if not isinstance(value, (str, unicode)):
@@ -516,8 +565,8 @@ class CommandComponent(Component):
     _required_keys = {}
     is_required = False
 
-    def validate(self, error_log):
-        is_valid = super(CommandComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(CommandComponent, self).validate(error_log, callback_function, *args)
 
         return is_valid
 
@@ -540,7 +589,7 @@ class OutputComponent(Component):
     }
     is_required = True
 
-    def validate(self, error_log):
-        is_valid = super(OutputComponent, self).validate(error_log)
+    def validate(self, error_log, callback_function=None, *args):
+        is_valid = super(OutputComponent, self).validate(error_log, callback_function, *args)
 
         return is_valid
