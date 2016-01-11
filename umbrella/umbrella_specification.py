@@ -86,7 +86,9 @@ class UmbrellaSpecification:
                     is_component_valid = True
             except ComponentTypeError as error:
                 umbrella_error = UmbrellaError(
-                    error_code=WRONG_SECTION_TYPE_ERROR_CODE, description="Wrong section type",
+                    error_code=WRONG_SECTION_TYPE_ERROR_CODE,
+                    description="Wrong section type of \"" + str(error.attempted_type) + "\". Should be type \"" +
+                                str(error.correct_type) + '"',
                     may_be_temporary=False, component_name=component_name
                 )
                 self._error_log.append(umbrella_error)
