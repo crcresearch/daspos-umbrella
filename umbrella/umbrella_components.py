@@ -17,7 +17,7 @@
 # limitations under the License.
 import urllib2
 
-from umbrella.UmbrellaError import MissingComponentError, ComponentTypeError, ProgrammingError
+from umbrella.umbrella_errors import MissingComponentError, ComponentTypeError, ProgrammingError
 from umbrella.misc import get_md5_and_file_size
 
 COMPONENT_NAME = "component_name"
@@ -88,7 +88,10 @@ class Component(object):
         if not isinstance(self.component_json, self._type):
             raise ComponentTypeError(
                 "Component \"" + str(self.name) + "\" is of type \"" + str(type(self.component_json)) +
-                "\" but must be of type \"" + str(self._type) + '"'
+                "\" but must be of type \"" + str(self._type) + '"',
+                component_name=self.name,
+                attempted_type=str(type(self.component_json)),
+                correct_type=str(self._type)
             )
 
         if isinstance(self.component_json, dict):  # Keys only apply to components that are dictionaries

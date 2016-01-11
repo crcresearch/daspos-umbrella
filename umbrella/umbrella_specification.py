@@ -18,8 +18,10 @@
 
 import json
 
-from umbrella.UmbrellaComponents import MissingComponent, Component, MissingComponentError, \
+from umbrella.umbrella_components import MissingComponent, Component, MissingComponentError, \
     SPECIFICATION_ROOT_COMPONENT_NAMES
+from umbrella.umbrella_errors import UmbrellaError, REQUIRED_SECTION_MISSING_ERROR_CODE, ComponentTypeError, \
+    WRONG_SECTION_TYPE_ERROR_CODE
 
 
 class UmbrellaSpecification:
@@ -73,10 +75,22 @@ class UmbrellaSpecification:
                 is_component_valid = component.validate(self._error_log)
             except MissingComponentError:
                 if component.is_required:
-                    self._error_log.append("Component \"" + str(component_name) + "\" is required")
+                    umbrella_error = UmbrellaError(
+                        error_code=REQUIRED_SECTION_MISSING_ERROR_CODE, description="Missing section",
+                        may_be_temporary=False, component_name=component_name
+                    )
+                    self._error_log.append(umbrella_error)
+                    # self._error_log.append("Component \"" + str(component_name) + "\" is required")
                     is_component_valid = False
                 else:
                     is_component_valid = True
+            except ComponentTypeError as error:
+                umbrella_error = UmbrellaError(
+                    error_code=WRONG_SECTION_TYPE_ERROR_CODE, description="Wrong section type",
+                    may_be_temporary=False, component_name=component_name
+                )
+                self._error_log.append(umbrella_error)
+                is_component_valid = False
 
             if not is_component_valid:
                 is_valid = False

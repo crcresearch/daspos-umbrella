@@ -17,5 +17,5 @@
 # limitations under the License.
 
 
-from .UmbrellaSpecification import UmbrellaSpecification
-from .UmbrellaComponents import *
+from .umbrella_specification import UmbrellaSpecification
+from .umbrella_components import *
