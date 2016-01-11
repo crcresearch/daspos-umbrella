@@ -18,6 +18,14 @@
 
 import json
 
+REQUIRED_SECTION_MISSING_ERROR_CODE = "REQ_SECT_MISS"
+WRONG_SECTION_TYPE_ERROR_CODE = "WRONG_SECT_TYPE"
+REQUIRED_ATTRIBUTE_MISSING_ERROR_CODE = "REQ_ATTR_MISS"
+WRONG_ATTRIBUTE_TYPE_ERROR_CODE = "WRONG_ATTR_TYPE"
+WRONG_FILE_SIZE_ERROR_CODE = "WRONG_FILE_SIZE"
+WRONG_MD5_ERROR_CODE = "WRONG_MD5"
+BAD_URL_ERROR_CODE = "BAD_URL"
+
 
 class UmbrellaError(object):
     # Fields are error_code, description, component_name, file_name, url, may_be_temporary
@@ -51,7 +59,19 @@ class MissingComponentError(Exception):
 
 
 class ComponentTypeError(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        if "component_name" not in kwargs:
+            raise ProgrammingError("component_name is required for ComponentTypeError")
+
+        if "attempted_type" not in kwargs:
+            raise ProgrammingError("attempted_type is required for ComponentTypeError")
+
+        if "correct_type" not in kwargs:
+            raise ProgrammingError("correct_type is required for ComponentTypeError")
+
+        self.component_name = kwargs["component_name"]
+        self.attempted_type = kwargs["attempted_type"]
+        self.correct_type = kwargs["correct_type"]
 
 
 class ProgrammingError(Exception):
