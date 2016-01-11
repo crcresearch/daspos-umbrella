@@ -76,3 +76,7 @@ class ComponentTypeError(Exception):
 
 class ProgrammingError(Exception):
     pass
+
+
+class JsonError(Exception):
+    pass

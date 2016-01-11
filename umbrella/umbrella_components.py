@@ -135,8 +135,8 @@ class Component(object):
             is_valid = False
             umbrella_error = UmbrellaError(
                 error_code=WRONG_ATTRIBUTE_TYPE_ERROR_CODE,
-                description="Attribute \"" + str(key_name) + "\" is of type \"" + str(type(subcomponent_json)) +
-                            "\" but should be of type \"" + str(info[TYPE]) + '"',
+                description="Attribute \"" + str(key_name) + "\" is of type \"" + str(subcomponent_json.__class__.__name__) +
+                            "\" but should be of type \"" + str(info[TYPE].__name__) + '"',
                 may_be_temporary=False, component_name=self.name
             )
             error_log.append(umbrella_error)
@@ -554,8 +554,8 @@ class EnvironmentVariableComponent(Component):
                 is_valid = False
                 umbrella_error = UmbrellaError(
                     error_code=WRONG_ATTRIBUTE_TYPE_ERROR_CODE,
-                    description="Attribute is of type \"" + str(type(value)) + "\" but should be of type \"" +
-                                str((str, unicode)) + "\"",
+                    description="Attribute is of type \"" + str(value.__class__.__name__) + "\" but should be of type \"" +
+                                str((str.__name__, unicode.__name__)) + "\"",
                     may_be_temporary=False,
                     component_name=self.name,
                 )

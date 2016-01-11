@@ -21,34 +21,40 @@ import json
 from umbrella.umbrella_components import MissingComponent, Component, MissingComponentError, \
     SPECIFICATION_ROOT_COMPONENT_NAMES
 from umbrella.umbrella_errors import UmbrellaError, REQUIRED_SECTION_MISSING_ERROR_CODE, ComponentTypeError, \
-    WRONG_SECTION_TYPE_ERROR_CODE
+    WRONG_SECTION_TYPE_ERROR_CODE, JsonError
 
 
 class UmbrellaSpecification:
     """
     Note this class is NOT thread safe. Do not use it in multithreaded environment.
     """
-    def __init__(self, specification_file=None):
+    def __init__(self, specification=None):
         self._error_log = []
         self._warning_log = []
         self.callback_function = lambda *args, **kwargs: True
         self.args = []
 
-        if specification_file is None:
+        if specification is None:
             self.specification_json = {}
         else:
-            if not hasattr(specification_file, "read") and not isinstance(specification_file, (str, unicode, dict)):
-                raise TypeError("Specification file must be a file-like object, json in string form, or a python dictionary")
+            if not hasattr(specification, "read") and not isinstance(specification, (str, unicode, dict)):
+                raise TypeError("Specification must be a file-like object, json in string form, or a python dictionary")
 
             # Open Specification
-            if hasattr(specification_file, "read"):
-                self.specification_json = json.load(specification_file)
-            elif isinstance(specification_file, (str, unicode)):
-                self.specification_json = json.loads(specification_file)
-            elif isinstance(specification_file, dict):
-                self.specification_json = specification_file
+            if hasattr(specification, "read"):
+                try:
+                    self.specification_json = json.load(specification)
+                except:
+                    raise JsonError("Specification was invalid json")
+            elif isinstance(specification, (str, unicode)):
+                try:
+                    self.specification_json = json.loads(specification)
+                except:
+                    raise JsonError("Specification was invalid json")
+            elif isinstance(specification, dict):
+                self.specification_json = specification
             else:
-                raise ValueError("Specification file must be an open file, json in string form, or a python dictionary")
+                raise ValueError("Specification must be an open file, json in string form, or a python dictionary")
 
     @property
     def error_log(self):

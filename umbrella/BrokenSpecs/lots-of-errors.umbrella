@@ -41,7 +41,8 @@
 			},
 			"fake_file": "blah",
 			"another_fake_file": [
-			],
+				1
+			]
 		}
 	},
 	"software": {
@@ -98,5 +99,5 @@
 	},
 	"cmd": [
 		"/software/openMalaria-32-centos6-x86_64/bin/openMalaria -s /tmp/scenario.xml"
-	],
+	]
 }
