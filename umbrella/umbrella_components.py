@@ -134,7 +134,7 @@ class Component(object):
         if not isinstance(subcomponent_json, info[TYPE]):  # Check if it is the right type
             is_valid = False
 
-            if isinstance(info[TYPE], "tuple"):
+            if isinstance(info[TYPE], tuple):
                 the_type = "string"
             else:
                 the_type = info[TYPE].__name__
