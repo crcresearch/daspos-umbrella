@@ -91,10 +91,15 @@ class UmbrellaSpecification:
                 else:
                     is_component_valid = True
             except ComponentTypeError as error:
+                if isinstance(error.correct_type, tuple):
+                    correct_type = "string"
+                else:
+                    correct_type = error.correct_type.__name__
+
                 umbrella_error = UmbrellaError(
                     error_code=WRONG_SECTION_TYPE_ERROR_CODE,
-                    description="Wrong section type of \"" + str(error.attempted_type) + "\". Should be type \"" +
-                                str(error.correct_type) + '"',
+                    description="Wrong section type of \"" + str(error.attempted_type.__name__) + "\". Should be type \"" +
+                                str(correct_type) + '"',
                     may_be_temporary=False, component_name=component_name
                 )
                 self._error_log.append(umbrella_error)

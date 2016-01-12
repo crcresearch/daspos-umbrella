@@ -29,6 +29,10 @@ def test_all_errors():
     validate_and_report("all-errors.umbrella")
 
 
+def test_lots_of_errors():
+    validate_and_report("lots-of-errors.umbrella")
+
+
 def test_missing_hardware():
     validate_and_report("missing-hardware.umbrella")
 
@@ -63,11 +67,17 @@ def validate_and_report(file_name):
     umbrella_validator = UmbrellaSpecification(specification_file)
     umbrella_validator.validate()
 
-    print umbrella_validator.error_log
-    print umbrella_validator.warning_log
+    for error in umbrella_validator.error_log:
+        print str(error)
+
+    # print str(umbrella_validator.error_log)
+    # print umbrella_validator.warning_log
 
 
 def test_all():
+    print "Testing lots-of-errors.umbrella:"
+    test_lots_of_errors()
+
     print "Testing all-errors.umbrella:"
     test_all_errors()
 

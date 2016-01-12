@@ -88,12 +88,16 @@ class Component(object):
         is_valid = True
 
         if not isinstance(self.component_json, self._type):
+            if isinstance(self._type, tuple):
+                the_type = "string"
+            else:
+                the_type = self._type.__name__
             raise ComponentTypeError(
-                "Component \"" + str(self.name) + "\" is of type \"" + str(type(self.component_json)) +
-                "\" but must be of type \"" + str(self._type) + '"',
+                "Component \"" + str(self.name) + "\" is of type \"" + str(self.component_json.__class__.__name__) +
+                "\" but must be of type \"" + str(the_type) + '"',
                 component_name=self.name,
-                attempted_type=str(type(self.component_json)),
-                correct_type=str(self._type)
+                attempted_type=type(self.component_json),
+                correct_type=self._type
             )
 
         if isinstance(self.component_json, dict):  # Keys only apply to components that are dictionaries
