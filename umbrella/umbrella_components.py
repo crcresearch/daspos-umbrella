@@ -133,10 +133,16 @@ class Component(object):
 
         if not isinstance(subcomponent_json, info[TYPE]):  # Check if it is the right type
             is_valid = False
+
+            if isinstance(info[TYPE], "tuple"):
+                the_type = "string"
+            else:
+                the_type = info[TYPE].__name__
+
             umbrella_error = UmbrellaError(
                 error_code=WRONG_ATTRIBUTE_TYPE_ERROR_CODE,
                 description="Attribute \"" + str(key_name) + "\" is of type \"" + str(subcomponent_json.__class__.__name__) +
-                            "\" but should be of type \"" + str(info[TYPE].__name__) + '"',
+                            "\" but should be of type \"" + str(the_type) + '"',
                 may_be_temporary=False, component_name=self.name
             )
             error_log.append(umbrella_error)
