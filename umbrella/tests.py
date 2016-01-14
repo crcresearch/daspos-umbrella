@@ -25,6 +25,10 @@ VALID_FILE = os.path.join(base_dir, "openmalaria.umbrella")
 PATH = os.path.join(base_dir, "BrokenSpecs")
 
 
+def test_temp():
+    validate_and_report("temp.umbrella")
+
+
 def test_all_errors():
     validate_and_report("all-errors.umbrella")
 
@@ -75,6 +79,9 @@ def validate_and_report(file_name):
 
 
 def test_all():
+    print "Testing temp.umbrella:"
+    test_temp()
+
     print "Testing lots-of-errors.umbrella:"
     test_lots_of_errors()
 

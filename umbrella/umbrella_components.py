@@ -333,7 +333,7 @@ class FileInfo(Component):
         except urllib2.HTTPError as error:
             umbrella_error = UmbrellaError(
                 error_code=BAD_URL_ERROR_CODE, description="Http error \"" + str(error) + '"',
-                may_be_temporary=True, component_name=str(file_info[FILE_NAME]), file_name=str(file_info[FILE_NAME]),
+                may_be_temporary=True, component_name=str(file_info[COMPONENT_NAME]), file_name=str(file_info[FILE_NAME]),
                 url=str(url)
             )
             error_log.append(umbrella_error)
@@ -346,7 +346,7 @@ class FileInfo(Component):
         except urllib2.URLError as error:
             umbrella_error = UmbrellaError(
                 error_code=BAD_URL_ERROR_CODE, description="Url error \"" + str(error) + '"',
-                may_be_temporary=True, component_name=str(file_info[FILE_NAME]), file_name=str(file_info[FILE_NAME]),
+                may_be_temporary=True, component_name=str(file_info[COMPONENT_NAME]), file_name=str(file_info[FILE_NAME]),
                 url=str(url)
             )
             error_log.append(umbrella_error)
