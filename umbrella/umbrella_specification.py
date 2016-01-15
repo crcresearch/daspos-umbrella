@@ -86,7 +86,6 @@ class UmbrellaSpecification:
                         may_be_temporary=False, component_name=component_name
                     )
                     self._error_log.append(umbrella_error)
-                    # self._error_log.append("Component \"" + str(component_name) + "\" is required")
                     is_component_valid = False
                 else:
                     is_component_valid = True
