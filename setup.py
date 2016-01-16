@@ -4,7 +4,7 @@ setup(
     name='daspos-umbrella',
     version='0.3.9',
     packages=['umbrella'],
-    url='',
+    url='https://github.com/crcresearch/daspos-umbrella',
     license='MIT License',
     author='Center for Research Computing, University of Notre Dame',
     author_email='CRCSupport@nd.edu',
