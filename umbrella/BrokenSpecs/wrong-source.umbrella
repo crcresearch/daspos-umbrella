@@ -82,7 +82,7 @@
 			"mountpoint": "/tmp/scenario.xml",
 			"source": [
 				"https://curate.nd.edu/downloads/fq977s77m61",
-				"http://ccl.cse.nd.edu/research/data/hep-case-study/e28c0c145c801789b0919d175f0afa9c/scenario.xml"
+				"http://ccl1.cse.nd.edu/research/data/hep-case-study/e28c0c145c801789b0919d175f0afa9c/scenario.xml"
 			],
 			"format": "plain",
 			"checksum": "e28c0c145c801789b0919d175f0afa9c",
