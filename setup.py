@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='daspos-umbrella',
-    version='0.3.9',
+    version='0.4.0',
     packages=['umbrella'],
     url='https://github.com/crcresearch/daspos-umbrella',
     license='MIT License',
