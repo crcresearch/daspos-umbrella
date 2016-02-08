@@ -337,10 +337,6 @@ class FileInfo(Component):
                 url=str(url)
             )
             error_log.append(umbrella_error)
-            # error_log.append(
-            #     "Http error for url " + str(url) + " associated with the file named " +
-            #     str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
-            # )
 
             return None, None
         except urllib2.URLError as error:
@@ -350,24 +346,12 @@ class FileInfo(Component):
                 url=str(url)
             )
             error_log.append(umbrella_error)
-            # error_log.append(
-            #     "Url error for url " + str(url) + " associated with the file named " +
-            #     str(file_info[FILE_NAME]) + " on component " + str(file_info[COMPONENT_NAME]) + " \"" + str(error) + '"'
-            # )
 
             return None, None
 
         # Get the file_size from the website. Some websites (old ones) may not give this information
         try:
             file_size_from_url = int(remote.headers["content-length"])
-            #
-            # if int(file_size_from_url) != int(file_info[FILE_SIZE]):
-            #     error_log.append(
-            #         "Url " + str(url) + " associated with the file named \"" +
-            #         str(file_info[FILE_NAME]) + "\" on component \"" + str(file_info[COMPONENT_NAME]) +
-            #         "\" reported a file size of " + str(file_size_from_url) +
-            #         " but the specification says it should be " + str(file_info[FILE_SIZE])
-            #     )
         except KeyError:
             file_size_from_url = None
 
